@@ -51,6 +51,22 @@ class WakfuCDNService:
         """Récupère les propriétés des items"""
         return await self.fetch_data_type("itemProperties")
     
+    async def get_monsters(self) -> Optional[List[Dict]]:
+        """Récupère tous les monstres"""
+        return await self.fetch_data_type("monsters")
+    
+    async def get_monster_families(self) -> Optional[List[Dict]]:
+        """Récupère les familles de monstres"""
+        return await self.fetch_data_type("monsterFamilies")
+    
+    async def get_drops(self) -> Optional[List[Dict]]:
+        """Récupère les tables de drop"""
+        return await self.fetch_data_type("drops")
+    
+    async def get_areas(self) -> Optional[List[Dict]]:
+        """Récupère les zones du jeu"""
+        return await self.fetch_data_type("areas")
+    
     def analyze_item_obtention(self, item: Dict, recipes: List[Dict], harvest_loots: List[Dict]) -> str:
         """Analyse comment obtenir un item"""
         item_id = item.get("definition", {}).get("item", {}).get("id")

@@ -50,3 +50,19 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Scraper checkpoints
+*_checkpoint.json
+scrape_checkpoint.json
+
+# Test files
+test_*.py
+test_*.json
+debug_*.py
+
+# WebDriver cache
+.wdm/
+
+# Temporary files
+*.tmp
+temp/
