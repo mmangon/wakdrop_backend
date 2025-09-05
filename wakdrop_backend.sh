@@ -1,10 +1,10 @@
 #!/bin/bash
-# Script de gestion WakDrop
+# Script de gestion wakdrop_backend
 
 show_help() {
-    echo "🎯 WakDrop - Gestionnaire de Service"
+    echo "🎯 wakdrop_backend - Gestionnaire de Service"
     echo
-    echo "Usage: ./wakdrop.sh [COMMAND]"
+    echo "Usage: ./wakdrop_backend.sh [COMMAND]"
     echo
     echo "Commands:"
     echo "  install     Installer le service systemd"
@@ -20,18 +20,18 @@ show_help() {
 
 case "$1" in
     install)
-        echo "🔧 Installation du service systemd WakDrop..."
+        echo "🔧 Installation du service systemd wakdrop_backend..."
         
         # Vérifier qu'on est dans le bon répertoire
-        if [ ! -f "wakdrop.service" ]; then
-            echo "❌ Erreur: fichier wakdrop.service introuvable"
-            echo "   Exécutez ce script depuis /opt/muppy/wakdropbackend"
+        if [ ! -f "wakdrop_backend.service" ]; then
+            echo "❌ Erreur: fichier wakdrop_backend.service introuvable"
+            echo "   Exécutez ce script depuis /opt/muppy/wakdrop_backendbackend"
             exit 1
         fi
 
         # Copier le fichier service
         echo "📝 Copie du fichier service..."
-        sudo cp wakdrop.service /etc/systemd/system/
+        sudo cp wakdrop_backend.service /etc/systemd/system/
 
         # Recharger systemd
         echo "🔄 Rechargement de systemd..."
@@ -39,17 +39,17 @@ case "$1" in
 
         # Activer le service (démarrage automatique)
         echo "✅ Activation du service..."
-        sudo systemctl enable wakdrop.service
+        sudo systemctl enable wakdrop_backend.service
 
         echo
-        echo "🎉 Service WakDrop installé avec succès !"
+        echo "🎉 Service wakdrop_backend installé avec succès !"
         echo
         echo "Commandes utiles:"
-        echo "  ./wakdrop.sh start        # Démarrer"
-        echo "  ./wakdrop.sh stop         # Arrêter"  
-        echo "  ./wakdrop.sh restart      # Redémarrer"
-        echo "  ./wakdrop.sh status       # Statut"
-        echo "  ./wakdrop.sh logs         # Logs en temps réel"
+        echo "  ./wakdrop_backend.sh start        # Démarrer"
+        echo "  ./wakdrop_backend.sh stop         # Arrêter"  
+        echo "  ./wakdrop_backend.sh restart      # Redémarrer"
+        echo "  ./wakdrop_backend.sh status       # Statut"
+        echo "  ./wakdrop_backend.sh logs         # Logs en temps réel"
         echo
         echo "Le service démarrera automatiquement au boot du système."
         echo
@@ -59,9 +59,9 @@ case "$1" in
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             echo "🚀 Démarrage du service..."
-            sudo systemctl start wakdrop
+            sudo systemctl start wakdrop_backend
             sleep 2
-            sudo systemctl status wakdrop --no-pager
+            sudo systemctl status wakdrop_backend --no-pager
             echo
             echo "✅ Service démarré !"
             echo "🌐 API disponible sur: http://localhost:8000"
@@ -69,27 +69,27 @@ case "$1" in
         fi
         ;;
     start)
-        echo "🚀 Démarrage de WakDrop..."
-        sudo systemctl start wakdrop
+        echo "🚀 Démarrage de wakdrop_backend..."
+        sudo systemctl start wakdrop_backend
         echo "✅ Service démarré"
         ;;
     stop)
-        echo "⏹️ Arrêt de WakDrop..."
-        sudo systemctl stop wakdrop
+        echo "⏹️ Arrêt de wakdrop_backend..."
+        sudo systemctl stop wakdrop_backend
         echo "✅ Service arrêté"
         ;;
     restart)
-        echo "🔄 Redémarrage de WakDrop..."
-        sudo systemctl restart wakdrop
+        echo "🔄 Redémarrage de wakdrop_backend..."
+        sudo systemctl restart wakdrop_backend
         echo "✅ Service redémarré"
         ;;
     status)
-        echo "📊 Statut de WakDrop:"
-        sudo systemctl status wakdrop --no-pager
+        echo "📊 Statut de wakdrop_backend:"
+        sudo systemctl status wakdrop_backend --no-pager
         ;;
     logs)
-        echo "📜 Logs WakDrop (Ctrl+C pour quitter):"
-        sudo journalctl -u wakdrop -f
+        echo "📜 Logs wakdrop_backend (Ctrl+C pour quitter):"
+        sudo journalctl -u wakdrop_backend -f
         ;;
     dev)
         echo "🔧 Mode développement - Lancement manuel..."
@@ -103,7 +103,7 @@ case "$1" in
             echo "📚 Documentation: http://localhost:8000/docs"
         else
             echo "❌ API non accessible"
-            echo "   Vérifiez que le service est démarré avec: ./wakdrop.sh status"
+            echo "   Vérifiez que le service est démarré avec: ./wakdrop_backend.sh status"
         fi
         ;;
     help|--help|-h|"")
