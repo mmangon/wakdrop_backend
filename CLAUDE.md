@@ -211,19 +211,35 @@ curl -X POST http://localhost:8000/admin/initialize \
 ```
 
 ### 3️⃣ Lancement de l'API
+
+#### 🔧 **Mode Développement** (Terminal)
 ```bash
-# Développement (avec auto-reload)
-python main.py
-# ou
-uvicorn main:app --reload --port 8000
+# Script de gestion simplifié
+./wakdrop.sh dev
 
-# Production
-uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
-
-# Accès
-# API: http://localhost:8000
-# Documentation interactive: http://localhost:8000/docs
+# Ou manuellement
+source venv/bin/activate
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+#### 🚀 **Mode Production** (Service Systemd)
+```bash
+# Installation du service (une seule fois)
+./wakdrop.sh install   # Configure systemd + propose de démarrer
+
+# Gestion quotidienne du service
+./wakdrop.sh start     # Démarrer
+./wakdrop.sh stop      # Arrêter
+./wakdrop.sh restart   # Redémarrer
+./wakdrop.sh status    # Statut
+./wakdrop.sh logs      # Logs temps réel
+./wakdrop.sh test      # Test API
+```
+
+#### 📍 **Accès**
+- **API** : http://localhost:8000
+- **Documentation** : http://localhost:8000/docs
+- **Health Check** : http://localhost:8000/health
 
 ## 📋 Commandes Utiles
 - `uvicorn main:app --reload` - Serveur dev avec auto-reload
