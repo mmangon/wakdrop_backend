@@ -58,6 +58,25 @@
             margin-bottom: 10px; 
         }
         .monsters-list { margin-top: 15px; }
+        .monsters-toggle {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 8px;
+            background: #e9ecef;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .monsters-toggle:hover { background: #dee2e6; }
+        .toggle-icon {
+            font-size: 14px;
+            margin-right: 8px;
+            transition: transform 0.2s;
+        }
+        .toggle-icon.expanded { transform: rotate(90deg); }
+        .monsters-content { display: none; }
+        .monsters-content.expanded { display: block; }
         .monster-item { 
             display: flex; 
             justify-content: space-between; 
@@ -195,14 +214,19 @@
                                     <button class="btn btn-danger" onclick="deleteZone(${zone.id}, '${zone.name}')">Supprimer</button>
                                 </div>
                             </div>
-                            <div id="monsters-${zone.id}" class="monsters-list">
-                                <div class="loading">Chargement des monstres...</div>
+                            <div class="monsters-list">
+                                <div class="monsters-toggle" onclick="toggleMonsters(${zone.id})">
+                                    <span class="toggle-icon" id="toggle-icon-${zone.id}">▶</span>
+                                    <span>Monstres (${zone.monster_count})</span>
+                                </div>
+                                <div id="monsters-${zone.id}" class="monsters-content">
+                                    <div class="loading">Chargement des monstres...</div>
+                                </div>
                             </div>
                         </div>
                     `).join('');
                     
-                    // Charger les monstres pour chaque zone
-                    zones.forEach(zone => loadZoneMonsters(zone.id));
+                    // Ne plus charger automatiquement les monstres - ils seront chargés au clic
                 }
                 
                 loading.style.display = 'none';
@@ -314,7 +338,7 @@
                     
                     const container = document.getElementById('monsterSuggestions');
                     container.innerHTML = monsters.map(monster => `
-                        <div class="monster-suggestion" onclick="selectMonster(${monster.monster_id}, '${monster.monster_name}')">
+                        <div class="monster-suggestion" onclick="selectMonster(${monster.monster_id}, '${monster.monster_name.replace(/'/g, "\\'")}')">
                             <strong>${monster.monster_name}</strong> <small>(ID: ${monster.monster_id})</small>
                         </div>
                     `).join('');
@@ -406,6 +430,29 @@
             } catch (error) {
                 console.error('Erreur lors du retrait du monstre:', error);
                 alert('Erreur lors du retrait');
+            }
+        }
+
+        // Fonction pour toggle l'affichage des monstres
+        function toggleMonsters(zoneId) {
+            const monstersContent = document.getElementById(`monsters-${zoneId}`);
+            const toggleIcon = document.getElementById(`toggle-icon-${zoneId}`);
+            
+            if (monstersContent.classList.contains('expanded')) {
+                // Replier
+                monstersContent.classList.remove('expanded');
+                toggleIcon.classList.remove('expanded');
+                toggleIcon.textContent = '▶';
+            } else {
+                // Déplier et charger les monstres si pas encore fait
+                monstersContent.classList.add('expanded');
+                toggleIcon.classList.add('expanded');
+                toggleIcon.textContent = '▼';
+                
+                // Charger les monstres si la div contient encore le texte de chargement
+                if (monstersContent.innerHTML.includes('Chargement des monstres...')) {
+                    loadZoneMonsters(zoneId);
+                }
             }
         }
 

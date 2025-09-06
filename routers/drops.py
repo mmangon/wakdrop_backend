@@ -104,7 +104,7 @@ async def get_monster_drops(monster_id: int, db: Session = Depends(get_db)):
     }
 
 @router.post("/farm-roadmap")
-async def generate_farm_roadmap(request: FarmRoadmapRequest):
+async def generate_farm_roadmap(request: FarmRoadmapRequest, collapsed: bool = True):
     """
     Génère une roadmap de farm optimisée pour une liste d'items
     
@@ -112,6 +112,10 @@ async def generate_farm_roadmap(request: FarmRoadmapRequest):
     - Quels monstres farmer
     - Dans quelles zones
     - Les taux de drop pour optimiser le farm
+    
+    Args:
+        request: Liste des IDs d'items
+        collapsed: Si True, retourne les zones avec monstres cachés par défaut
     """
     if not request.item_ids:
         raise HTTPException(status_code=400, detail="La liste d'items est vide")
@@ -123,6 +127,13 @@ async def generate_farm_roadmap(request: FarmRoadmapRequest):
             status_code=404, 
             detail="Aucune donnée de drop trouvée pour ces items. Lancez d'abord un scraping."
         )
+    
+    roadmap["collapsed_by_default"] = collapsed
+    
+    # Si collapsed est activé, marquer toutes les zones comme non-expandées
+    if collapsed and 'zones_organized' in roadmap:
+        for zone in roadmap['zones_organized']:
+            zone['expanded'] = False
     
     return roadmap
 

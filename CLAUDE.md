@@ -251,9 +251,10 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - **🔍 Recherche intelligente d'items par texte** avec scoring de pertinence
 - **🎯 Création de builds depuis texte libre** : "Épée Iop, Cape du Feu"
 - **📊 8,230+ items** synchronisés depuis le CDN Wakfu
-- **👾 604 monstres** avec 10,517+ données de drop importées
-- **🗺️ Génération automatique de roadmaps** de farm optimisées
-- **📚 Documentation API complète** pour le frontend
+- **👾 844 monstres** avec 12,635+ données de drop importées
+- **🏛️ Interface d'administration des zones** avec association monstres/zones
+- **🗺️ Génération automatique de roadmaps** de farm optimisées avec zones
+- **📚 Documentation API complète** pour le frontend (v0.4.0)
 - **🔗 CORS configuré** pour Vue.js
 - **⚡ API REST rapide** avec FastAPI + PostgreSQL
 
@@ -261,7 +262,8 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - **Endpoint principal** : `POST /search/build-from-text`
 - **Interface simple** : L'utilisateur tape du texte libre
 - **Résultat immédiat** : Roadmap complète avec zones de farm
-- **Documentation** : Voir `API_DOCUMENTATION.md`
+- **Administration** : Interface web pour gérer les zones (`/static/admin_zones.html`)
+- **Documentation** : Voir `API_DOCUMENTATION.md` (v0.4.0)
 
 ### 🔧 **Améliorations Futures (Optionnelles)**
 - [ ] Cache Redis pour performances
@@ -269,7 +271,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - [ ] Tests unitaires complets
 - [ ] Docker et docker-compose
 - [ ] Rate limiting et authentification
-- [ ] Interface d'administration web
+- [x] ~~Interface d'administration web~~ ✅ **Terminée** (zones)
 
 ## 🌐 Déploiement
 - **Serveur** : LXC avec PostgreSQL

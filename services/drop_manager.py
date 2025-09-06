@@ -169,7 +169,7 @@ class DropManager:
             item_ids: Liste des IDs d'items à farmer
             
         Returns:
-            Roadmap organisée par zones/monstres
+            Roadmap organisée par zones/monstres avec structure pliable
         """
         drops_data = self.get_drops_for_items(item_ids)
         
@@ -200,22 +200,29 @@ class DropManager:
                 for zone in zones:
                     if zone not in zones_map:
                         zones_map[zone] = {
-                            'monsters': set(),
+                            'monsters': {},
                             'total_items': 0,
-                            'avg_drop_rate': 0
+                            'avg_drop_rate': 0,
+                            'expanded': False  # Pour l'interface pliable
                         }
-                    zones_map[zone]['monsters'].add(monster_id)
+                    # Ajouter le monstre dans la zone avec ses détails
+                    zones_map[zone]['monsters'][monster_id] = {
+                        'name': drop['monster_name'],
+                        'level': drop['monster_level'],
+                        'items': []
+                    }
         
-        # Calculer les statistiques par zone
+        # Ajouter les items à chaque monstre dans chaque zone
         for zone, zone_data in zones_map.items():
-            zone_data['monsters'] = list(zone_data['monsters'])
             total_rate = 0
             total_items = 0
             
             for monster_id in zone_data['monsters']:
-                monster_items = monsters_map[monster_id]['items']
-                total_items += len(monster_items)
-                total_rate += sum(item['drop_rate'] for item in monster_items)
+                if monster_id in monsters_map:
+                    monster_items = monsters_map[monster_id]['items']
+                    zone_data['monsters'][monster_id]['items'] = monster_items
+                    total_items += len(monster_items)
+                    total_rate += sum(item['drop_rate'] for item in monster_items)
             
             zone_data['total_items'] = total_items
             zone_data['avg_drop_rate'] = total_rate / total_items if total_items > 0 else 0
@@ -227,8 +234,28 @@ class DropManager:
             reverse=True
         )
         
+        # Créer la structure finale avec zones organisées
+        zones_organized = []
+        for zone_name, zone_data in sorted_zones:
+            zones_organized.append({
+                'name': zone_name,
+                'total_items': zone_data['total_items'],
+                'avg_drop_rate': zone_data['avg_drop_rate'],
+                'expanded': zone_data['expanded'],
+                'monsters': [
+                    {
+                        'id': monster_id,
+                        'name': monster_info['name'],
+                        'level': monster_info['level'],
+                        'items': monster_info['items']
+                    }
+                    for monster_id, monster_info in zone_data['monsters'].items()
+                ]
+            })
+        
         return {
-            'zones': dict(sorted_zones),
+            'zones_organized': zones_organized,  # Nouvelle structure pour l'interface pliable
+            'zones': dict(sorted_zones),  # Garder l'ancienne structure pour compatibilité
             'monsters': monsters_map,
             'summary': {
                 'total_items': len(item_ids),

@@ -45,7 +45,7 @@
 **Utilisation dans Vue.js:**
 ```javascript
 async searchItems(query) {
-  const response = await fetch('http://localhost:8000/search/items', {
+  const response = await fetch('https://wakdropbackend-master-dev-mmangon.nabricot.pandabyte.ovh/search/items', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, limit: 20 })
@@ -189,7 +189,7 @@ export default {
     async createBuild() {
       if (!this.itemsText.trim()) return
       
-      const response = await fetch('http://localhost:8000/search/build-from-text', {
+      const response = await fetch('https://wakdropbackend-master-dev-mmangon.nabricot.pandabyte.ovh/search/build-from-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -239,7 +239,150 @@ Génère la roadmap de farm pour un build existant.
 
 ---
 
-### 4. **Informations Items** - `/items/`
+### 4. **Données de Drop** - `/drops/` 🆕
+
+Les endpoints de drops incluent maintenant les **zones associées** !
+
+#### GET `/drops/item/{item_id}`
+Récupère tous les monstres qui drop un item avec leurs zones.
+
+```json
+// GET /drops/item/26581 (Coiffetière)
+[
+  {
+    "monster_id": 4998,
+    "monster_name": "Abrasif le décapant",
+    "monster_level": null,
+    "item_id": 26581,
+    "drop_rate": 0.72,
+    "zone_name": "Bonta"    // 🆕 Zone associée !
+  },
+  {
+    "monster_id": 4874,
+    "monster_name": "Chêne Mou", 
+    "drop_rate": 0.72,
+    "zone_name": "Bonta"
+  }
+]
+```
+
+#### GET `/drops/monster/{monster_id}`
+Récupère tous les items qu'un monstre peut drop.
+
+#### POST `/drops/farm-roadmap`
+Génère une roadmap de farm optimisée pour plusieurs items.
+
+```json
+// Request
+{
+  "item_ids": [12582, 23647]  // DéCape rare et mythique
+}
+
+// Response  
+{
+  "priority_monsters": [
+    {
+      "monster_name": "Bouftou Sauvage",
+      "zone": "Plaine des Bouftous",  // 🆕 Zone incluse
+      "total_items": 2,
+      "dropped_items": [
+        {"item_name": "DéCape", "drop_rate": 0.8}
+      ]
+    }
+  ]
+}
+```
+
+#### GET `/drops/stats`
+Statistiques des données en base :
+- **12,635 drops** au total
+- **844 monstres** uniques  
+- **5,646 items** avec des drops
+
+#### POST `/drops/import`
+Import de données depuis fichiers JSON externes.
+
+#### DELETE `/drops/clear`
+⚠️ Supprime toutes les données de drop.
+
+---
+
+### 5. **Administration des Zones** - `/admin/zones/` 🆕
+
+Interface complète pour gérer les zones et associer les monstres.
+
+#### GET `/admin/zones/zones`
+Liste toutes les zones avec le nombre de monstres.
+
+```json
+[
+  {
+    "id": 1,
+    "name": "Bonta",
+    "description": "Cité de Bonta",
+    "min_level": 1,
+    "max_level": 200,
+    "monster_count": 15
+  }
+]
+```
+
+#### POST `/admin/zones/zones`
+Crée une nouvelle zone.
+
+```json
+// Request
+{
+  "name": "Île de Moon",
+  "description": "Zone de haut niveau",
+  "min_level": 180,
+  "max_level": 200
+}
+```
+
+#### GET `/admin/zones/zones/{zone_id}`
+Détails d'une zone avec tous ses monstres.
+
+```json
+{
+  "id": 1,
+  "name": "Bonta", 
+  "monsters": [
+    {
+      "monster_id": 4998,
+      "monster_name": "Abrasif le décapant"
+    }
+  ]
+}
+```
+
+#### POST `/admin/zones/zones/{zone_id}/monsters`
+Ajoute un monstre à une zone.
+
+```json
+// Request
+{
+  "monster_id": 4998
+}
+```
+
+#### DELETE `/admin/zones/zones/{zone_id}/monsters/{monster_id}`
+Retire un monstre d'une zone.
+
+#### GET `/admin/zones/monsters/search`
+Recherche des monstres pour l'interface admin.
+
+```bash
+GET /admin/zones/monsters/search?q=abra&limit=5
+# → Retourne les monstres contenant "abra"
+```
+
+**🌐 Interface Web** : `/static/admin_zones.html`
+Interface graphique complète pour gérer les zones.
+
+---
+
+### 6. **Informations Items** - `/items/`
 
 #### GET `/items/{item_id}`
 ```json
@@ -349,7 +492,7 @@ Tous les items d'un monstre.
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'http://localhost:8000',
+  baseURL: 'https://wakdropbackend-master-dev-mmangon.nabricot.pandabyte.ovh',
   headers: {
     'Content-Type': 'application/json'
   }
@@ -419,7 +562,7 @@ try {
 
 ### Interface Web d'Administration
 
-**URL**: http://localhost:8000/static/admin_zones.html
+**URL**: https://wakdropbackend-master-dev-mmangon.nabricot.pandabyte.ovh/static/admin_zones.html
 
 Interface graphique simple pour gérer les zones et associer les monstres aux zones.
 
