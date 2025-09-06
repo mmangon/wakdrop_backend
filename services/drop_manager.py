@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from core.database import SessionLocal
 from models.cache import MonsterDrop, CachedMonster
+from models.zones import Zone, MonsterZone
 # from services.wakfu_scraper import WakfuScraper  # Module supprimé
 import json
 
@@ -137,19 +138,21 @@ class DropManager:
                         CachedMonster.wakfu_id == drop.monster_id
                     ).first()
                     
+                    # Récupérer les zones depuis notre table de zones
+                    monster_zones = db.query(MonsterZone, Zone).join(
+                        Zone, MonsterZone.zone_id == Zone.id
+                    ).filter(MonsterZone.monster_id == drop.monster_id).all()
+                    
+                    zones_list = [zone.name for _, zone in monster_zones]
+                    
                     drop_info = {
                         'monster_id': drop.monster_id,
                         'monster_name': drop.monster_name,
                         'monster_level': monster.level if monster else None,
                         'drop_rate': drop.drop_rate,
-                        'zone_name': drop.zone_name
+                        'zone_name': drop.zone_name,
+                        'zones': zones_list
                     }
-                    
-                    # Ajouter les zones depuis les données du monstre si disponibles
-                    if monster and monster.data_json:
-                        zones = monster.data_json.get('zones', [])
-                        if zones:
-                            drop_info['zones'] = [z['name'] for z in zones]
                     
                     drops_data[item_id]['drops'].append(drop_info)
             

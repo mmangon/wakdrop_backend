@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WakDrop - Administration des Zones</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background-color: #f5f5f5; 
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+        }
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 30px; 
+        }
+        .btn { 
+            padding: 8px 16px; 
+            margin: 4px; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+        }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn:hover { opacity: 0.8; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group textarea, .form-group select { 
+            width: 100%; 
+            padding: 8px; 
+            border: 1px solid #ddd; 
+            border-radius: 4px; 
+        }
+        .zones-list { margin-top: 20px; }
+        .zone-card { 
+            border: 1px solid #ddd; 
+            border-radius: 6px; 
+            padding: 15px; 
+            margin-bottom: 15px; 
+            background: #f8f9fa; 
+        }
+        .zone-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 10px; 
+        }
+        .monsters-list { margin-top: 15px; }
+        .monster-item { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 8px; 
+            margin: 5px 0; 
+            background: white; 
+            border-radius: 4px; 
+            border: 1px solid #eee; 
+        }
+        .modal { 
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0; 
+            top: 0; 
+            width: 100%; 
+            height: 100%; 
+            background-color: rgba(0,0,0,0.5); 
+        }
+        .modal-content { 
+            background-color: white; 
+            margin: 5% auto; 
+            padding: 20px; 
+            border-radius: 8px; 
+            width: 80%; 
+            max-width: 600px; 
+        }
+        .close { 
+            color: #aaa; 
+            float: right; 
+            font-size: 28px; 
+            font-weight: bold; 
+            cursor: pointer; 
+        }
+        .close:hover { color: black; }
+        .loading { text-align: center; padding: 20px; color: #666; }
+        .monster-search { margin-bottom: 10px; }
+        .monster-search input { margin-bottom: 10px; }
+        .monster-suggestions { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; }
+        .monster-suggestion { 
+            padding: 10px; 
+            cursor: pointer; 
+            border-bottom: 1px solid #eee; 
+        }
+        .monster-suggestion:hover { background: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗺️ Administration des Zones</h1>
+            <button class="btn btn-primary" onclick="openCreateZoneModal()">+ Nouvelle Zone</button>
+        </div>
+
+        <div id="loading" class="loading">Chargement...</div>
+        <div id="zones-container" class="zones-list" style="display: none;"></div>
+    </div>
+
+    <!-- Modal Création/Édition Zone -->
+    <div id="zoneModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeZoneModal()">&times;</span>
+            <h2 id="zoneModalTitle">Nouvelle Zone</h2>
+            <form id="zoneForm">
+                <div class="form-group">
+                    <label>Nom de la zone *</label>
+                    <input type="text" id="zoneName" required>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="zoneDescription" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Niveau minimum</label>
+                    <input type="number" id="zoneMinLevel" min="1" max="230">
+                </div>
+                <div class="form-group">
+                    <label>Niveau maximum</label>
+                    <input type="number" id="zoneMaxLevel" min="1" max="230">
+                </div>
+                <button type="submit" class="btn btn-success">Sauvegarder</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Ajout Monstre -->
+    <div id="monsterModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeMonsterModal()">&times;</span>
+            <h2>Ajouter un Monstre</h2>
+            <form id="monsterForm">
+                <div class="form-group monster-search">
+                    <label>Rechercher un monstre</label>
+                    <input type="text" id="monsterSearch" placeholder="Tapez le nom du monstre...">
+                    <div id="monsterSuggestions" class="monster-suggestions"></div>
+                </div>
+                <button type="submit" class="btn btn-success">Ajouter</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://wakdropbackend-master-dev-mmangon.nabricot.pandabyte.ovh';
+        let currentZoneId = null;
+        let selectedMonsterId = null;
+
+        // Chargement initial
+        document.addEventListener('DOMContentLoaded', function() {
+            loadZones();
+        });
+
+        // Chargement des zones
+        async function loadZones() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/zones/zones`);
+                const zones = await response.json();
+                
+                const container = document.getElementById('zones-container');
+                const loading = document.getElementById('loading');
+                
+                if (zones.length === 0) {
+                    container.innerHTML = '<p>Aucune zone trouvée. Créez votre première zone !</p>';
+                } else {
+                    container.innerHTML = zones.map(zone => `
+                        <div class="zone-card">
+                            <div class="zone-header">
+                                <div>
+                                    <h3>${zone.name}</h3>
+                                    <p>${zone.description || ''}</p>
+                                    <small>Niveaux: ${zone.min_level || '?'} - ${zone.max_level || '?'} | Monstres: ${zone.monster_count}</small>
+                                </div>
+                                <div>
+                                    <button class="btn btn-primary" onclick="openAddMonsterModal(${zone.id})">+ Monstre</button>
+                                    <button class="btn btn-danger" onclick="deleteZone(${zone.id}, '${zone.name}')">Supprimer</button>
+                                </div>
+                            </div>
+                            <div id="monsters-${zone.id}" class="monsters-list">
+                                <div class="loading">Chargement des monstres...</div>
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    // Charger les monstres pour chaque zone
+                    zones.forEach(zone => loadZoneMonsters(zone.id));
+                }
+                
+                loading.style.display = 'none';
+                container.style.display = 'block';
+            } catch (error) {
+                console.error('Erreur lors du chargement des zones:', error);
+                document.getElementById('loading').innerHTML = 'Erreur lors du chargement';
+            }
+        }
+
+        // Chargement des monstres d'une zone
+        async function loadZoneMonsters(zoneId) {
+            try {
+                const response = await fetch(`${API_BASE}/admin/zones/zones/${zoneId}`);
+                const zoneDetail = await response.json();
+                
+                const container = document.getElementById(`monsters-${zoneId}`);
+                
+                if (zoneDetail.monsters.length === 0) {
+                    container.innerHTML = '<p><em>Aucun monstre dans cette zone</em></p>';
+                } else {
+                    container.innerHTML = zoneDetail.monsters.map(monster => `
+                        <div class="monster-item">
+                            <div>
+                                <strong>${monster.monster_name}</strong>
+                                <small>(ID: ${monster.monster_id})</small>
+                                <br>
+                            </div>
+                            <button class="btn btn-danger" onclick="removeMonster(${zoneId}, ${monster.monster_id})">Retirer</button>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error(`Erreur lors du chargement des monstres de la zone ${zoneId}:`, error);
+            }
+        }
+
+        // Gestion des modals
+        function openCreateZoneModal() {
+            document.getElementById('zoneModalTitle').textContent = 'Nouvelle Zone';
+            document.getElementById('zoneForm').reset();
+            currentZoneId = null;
+            document.getElementById('zoneModal').style.display = 'block';
+        }
+
+        function closeZoneModal() {
+            document.getElementById('zoneModal').style.display = 'none';
+        }
+
+        function openAddMonsterModal(zoneId) {
+            currentZoneId = zoneId;
+            document.getElementById('monsterForm').reset();
+            document.getElementById('monsterSuggestions').innerHTML = '';
+            selectedMonsterId = null;
+            document.getElementById('monsterModal').style.display = 'block';
+        }
+
+        function closeMonsterModal() {
+            document.getElementById('monsterModal').style.display = 'none';
+        }
+
+        // Soumission formulaire zone
+        document.getElementById('zoneForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const zoneData = {
+                name: document.getElementById('zoneName').value,
+                description: document.getElementById('zoneDescription').value || null,
+                min_level: document.getElementById('zoneMinLevel').value || null,
+                max_level: document.getElementById('zoneMaxLevel').value || null
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/zones/zones`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(zoneData)
+                });
+
+                if (response.ok) {
+                    closeZoneModal();
+                    loadZones();
+                } else {
+                    const error = await response.json();
+                    alert(`Erreur: ${error.detail}`);
+                }
+            } catch (error) {
+                console.error('Erreur lors de la création de la zone:', error);
+                alert('Erreur lors de la création de la zone');
+            }
+        });
+
+        // Recherche de monstres
+        let searchTimeout;
+        document.getElementById('monsterSearch').addEventListener('input', function() {
+            const query = this.value.trim();
+            
+            clearTimeout(searchTimeout);
+            
+            if (query.length < 2) {
+                document.getElementById('monsterSuggestions').innerHTML = '';
+                return;
+            }
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`${API_BASE}/admin/zones/monsters/search?q=${encodeURIComponent(query)}&limit=10`);
+                    const monsters = await response.json();
+                    
+                    const container = document.getElementById('monsterSuggestions');
+                    container.innerHTML = monsters.map(monster => `
+                        <div class="monster-suggestion" onclick="selectMonster(${monster.monster_id}, '${monster.monster_name}')">
+                            <strong>${monster.monster_name}</strong> <small>(ID: ${monster.monster_id})</small>
+                        </div>
+                    `).join('');
+                } catch (error) {
+                    console.error('Erreur lors de la recherche de monstres:', error);
+                }
+            }, 300);
+        });
+
+        function selectMonster(monsterId, monsterName) {
+            selectedMonsterId = monsterId;
+            document.getElementById('monsterSearch').value = monsterName;
+            document.getElementById('monsterSuggestions').innerHTML = '';
+        }
+
+        // Soumission formulaire monstre
+        document.getElementById('monsterForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (!selectedMonsterId) {
+                alert('Veuillez sélectionner un monstre dans la liste de suggestions');
+                return;
+            }
+
+            const monsterData = {
+                monster_id: selectedMonsterId
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/zones/zones/${currentZoneId}/monsters`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(monsterData)
+                });
+
+                if (response.ok) {
+                    closeMonsterModal();
+                    loadZoneMonsters(currentZoneId);
+                } else {
+                    const error = await response.json();
+                    alert(`Erreur: ${error.detail}`);
+                }
+            } catch (error) {
+                console.error('Erreur lors de l\'ajout du monstre:', error);
+                alert('Erreur lors de l\'ajout du monstre');
+            }
+        });
+
+        // Suppression zone
+        async function deleteZone(zoneId, zoneName) {
+            if (!confirm(`Êtes-vous sûr de vouloir supprimer la zone "${zoneName}" ?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/zones/zones/${zoneId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    loadZones();
+                } else {
+                    const error = await response.json();
+                    alert(`Erreur: ${error.detail}`);
+                }
+            } catch (error) {
+                console.error('Erreur lors de la suppression de la zone:', error);
+                alert('Erreur lors de la suppression');
+            }
+        }
+
+        // Retrait monstre
+        async function removeMonster(zoneId, monsterId) {
+            if (!confirm('Êtes-vous sûr de vouloir retirer ce monstre de la zone ?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/zones/zones/${zoneId}/monsters/${monsterId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    loadZoneMonsters(zoneId);
+                } else {
+                    const error = await response.json();
+                    alert(`Erreur: ${error.detail}`);
+                }
+            } catch (error) {
+                console.error('Erreur lors du retrait du monstre:', error);
+                alert('Erreur lors du retrait');
+            }
+        }
+
+        // Fermeture modal au clic extérieur
+        window.addEventListener('click', function(event) {
+            const zoneModal = document.getElementById('zoneModal');
+            const monsterModal = document.getElementById('monsterModal');
+            
+            if (event.target == zoneModal) {
+                closeZoneModal();
+            }
+            if (event.target == monsterModal) {
+                closeMonsterModal();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,8 +1,15 @@
 # 🎯 WakDrop API - Documentation Frontend
 
-**Base URL**: `http://localhost:8000` (développement)  
-**API Version**: 0.2.0  
-**Documentation interactive**: http://localhost:8000/docs
+**Base URL**: `https://wakdropbackend-master-dev-mmangon.nabricot.pandabyte.ovh` (production)  
+**API Version**: 0.4.0  
+**Documentation interactive**: https://wakdropbackend-master-dev-mmangon.nabricot.pandabyte.ovh/docs
+
+## 🆕 **Mise à jour v0.4.0** - Zones et Administration
+
+- ✅ **Interface d'administration des zones** : Gérez les zones et associez les monstres
+- ✅ **API zones intégrée** : Les drops retournent maintenant les zones associées  
+- ✅ **Base de données enrichie** : 844 monstres avec 12,635+ drops
+- ✅ **Système complet et optimisé** : Nettoyage et maintenance du code
 
 ---
 
@@ -53,10 +60,19 @@ async searchItems(query) {
 
 **Workflow principal** - L'utilisateur tape ses items en texte libre.
 
+🆕 **Nouvelle fonctionnalité** : **Sélection automatique par rareté**  
+Vous pouvez maintenant spécifier la rareté directement dans le texte !
+
 #### POST `/search/build-from-text`
 
 ```json
-// Request
+// Request - Avec spécification de rareté
+{
+  "items_text": "Coiffe Primitive légendaire, Cape du Feu rare, Anneau PA mythique",
+  "build_name": "Mon Build Tank"
+}
+
+// Request - Sans rareté (prend le premier résultat)
 {
   "items_text": "Épée Iop, Cape du Feu, Anneau PA, Casque Sram",
   "build_name": "Mon Build Tank"
@@ -95,6 +111,7 @@ async searchItems(query) {
             "item_name": "Épée du Iop",
             "drop_rate": 2.5
           }
+          // ⚠️ Note: drop_rate est déjà en pourcentage (2.5 = 2.5%)
         ]
       }
     ],
@@ -107,6 +124,21 @@ async searchItems(query) {
 }
 ```
 
+**Raretés supportées:**
+- `commun` ou `inhabituel`
+- `rare` 
+- `mythique`
+- `légendaire` (ou `legendaire`)
+- `relique`
+- `épique` (ou `epique`)
+
+**Exemples d'utilisation:**
+```
+"Coiffe Primitive légendaire"     → Sélectionne la version Légendaire niveau 245
+"Coiffe Primitive mythique"       → Sélectionne la version Mythique niveau 237  
+"Épée Iop rare, Cape du Feu"     → Épée rare + Cape (premier résultat)
+```
+
 **Interface recommandée:**
 ```vue
 <template>
@@ -114,7 +146,7 @@ async searchItems(query) {
     <h2>🔍 Créer un Build</h2>
     <textarea 
       v-model="itemsText" 
-      placeholder="Tapez vos items: Épée Iop, Cape du Feu, Anneau PA..."
+      placeholder="Exemples: Coiffe Primitive légendaire, Cape du Feu rare, Anneau PA mythique"
       rows="3"
     ></textarea>
     <input v-model="buildName" placeholder="Nom du build (optionnel)" />
@@ -251,7 +283,7 @@ Tous les items d'un monstre.
       <p>Tapez vos items en texte libre, séparés par des virgules:</p>
       <textarea 
         v-model="itemsText"
-        placeholder="Exemple: Épée Iop niveau 200, Cape du feu, Anneau PA, Bottes terre"
+        placeholder="Exemples: Coiffe Primitive légendaire, Cape du feu rare, Anneau PA mythique"
         class="items-textarea"
       ></textarea>
       <input 
@@ -349,11 +381,13 @@ export default {
 
 ## ⚡ **Workflow Utilisateur Final**
 
-1. **Utilisateur** tape: `"Épée Iop, Cape du feu, Anneau PA"`
+1. **Utilisateur** tape: `"Coiffe Primitive légendaire, Cape du feu rare, Anneau PA"`
 2. **Frontend** appelle: `POST /search/build-from-text`
-3. **API** trouve automatiquement les items correspondants
-4. **API** génère la roadmap avec les monstres à farmer
+3. **API** trouve automatiquement les items correspondants **avec la bonne rareté**
+4. **API** génère la roadmap avec les monstres à farmer **pour ces items précis**
 5. **Frontend** affiche la roadmap avec zones et taux de drop
+
+🆕 **Nouveau** : L'API sélectionne automatiquement la **bonne variante** d'item selon la rareté spécifiée !
 
 **C'est tout !** Plus besoin de Zenith, tout est automatique. 🎉
 
@@ -376,5 +410,148 @@ try {
     // Erreur serveur
     alert("Erreur serveur, réessayez plus tard")
   }
+}
+```
+
+---
+
+## 🗺️ **Administration des Zones**
+
+### Interface Web d'Administration
+
+**URL**: http://localhost:8000/static/admin_zones.html
+
+Interface graphique simple pour gérer les zones et associer les monstres aux zones.
+
+**Fonctionnalités:**
+- ✅ Créer/supprimer des zones
+- ✅ Recherche intelligente de monstres
+- ✅ Association monstre/zone avec fréquence d'apparition
+- ✅ Interface responsive et intuitive
+
+### Endpoints API Zones
+
+#### GET `/admin/zones/zones`
+Liste toutes les zones avec le nombre de monstres.
+
+```json
+// Response
+[
+  {
+    "id": 1,
+    "name": "Île de Moon",
+    "description": "Zone de niveau élevé avec des boss puissants",
+    "min_level": 180,
+    "max_level": 200,
+    "monster_count": 5
+  }
+]
+```
+
+#### POST `/admin/zones/zones`
+Crée une nouvelle zone.
+
+```json
+// Request
+{
+  "name": "Nouvelle Zone",
+  "description": "Description optionnelle",
+  "min_level": 100,
+  "max_level": 120
+}
+
+// Response
+{
+  "id": 2,
+  "name": "Nouvelle Zone",
+  "description": "Description optionnelle", 
+  "min_level": 100,
+  "max_level": 120,
+  "monster_count": 0
+}
+```
+
+#### GET `/admin/zones/zones/{zone_id}`
+Détails d'une zone avec tous ses monstres.
+
+```json
+// Response
+{
+  "id": 1,
+  "name": "Île de Moon",
+  "description": "Zone de niveau élevé",
+  "min_level": 180,
+  "max_level": 200,
+  "monster_count": 2,
+  "monsters": [
+    {
+      "monster_id": 4909,
+      "monster_name": "Scaraboss",
+      "spawn_frequency": "Boss",
+      "notes": "Archimonstre principal de la zone"
+    }
+  ]
+}
+```
+
+#### DELETE `/admin/zones/zones/{zone_id}`
+Supprime une zone et toutes ses associations.
+
+#### POST `/admin/zones/zones/{zone_id}/monsters`
+Ajoute un monstre à une zone.
+
+```json
+// Request
+{
+  "monster_id": 4909,
+  "spawn_frequency": "Boss",
+  "notes": "Archimonstre principal"
+}
+```
+
+#### DELETE `/admin/zones/zones/{zone_id}/monsters/{monster_id}`
+Retire un monstre d'une zone.
+
+#### GET `/admin/zones/monsters/search`
+Recherche des monstres pour l'interface admin.
+
+**Paramètres:**
+- `q` (string): Terme de recherche
+- `limit` (int): Nombre maximum de résultats (défaut: 20)
+
+```json
+// Response
+[
+  {
+    "monster_id": 4909,
+    "monster_name": "Scaraboss"
+  }
+]
+```
+
+### Utilisation dans le Frontend
+
+```javascript
+// Charger les zones
+async function loadZones() {
+  const response = await fetch('/admin/zones/zones');
+  const zones = await response.json();
+  return zones;
+}
+
+// Créer une zone
+async function createZone(zoneData) {
+  const response = await fetch('/admin/zones/zones', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(zoneData)
+  });
+  return response.json();
+}
+
+// Rechercher des monstres
+async function searchMonsters(query) {
+  const response = await fetch(`/admin/zones/monsters/search?q=${encodeURIComponent(query)}`);
+  return response.json();
 }
 ```

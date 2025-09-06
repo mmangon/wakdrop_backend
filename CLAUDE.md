@@ -215,7 +215,7 @@ curl -X POST http://localhost:8000/admin/initialize \
 #### 🔧 **Mode Développement** (Terminal)
 ```bash
 # Script de gestion simplifié
-./wakdrop.sh dev
+./wakdrop_backend.sh dev
 
 # Ou manuellement
 source venv/bin/activate
@@ -225,15 +225,15 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 #### 🚀 **Mode Production** (Service Systemd)
 ```bash
 # Installation du service (une seule fois)
-./wakdrop.sh install   # Configure systemd + propose de démarrer
+./wakdrop_backend.sh install   # Configure systemd + propose de démarrer
 
 # Gestion quotidienne du service
-./wakdrop.sh start     # Démarrer
-./wakdrop.sh stop      # Arrêter
-./wakdrop.sh restart   # Redémarrer
-./wakdrop.sh status    # Statut
-./wakdrop.sh logs      # Logs temps réel
-./wakdrop.sh test      # Test API
+./wakdrop_backend.sh start     # Démarrer
+./wakdrop_backend.sh stop      # Arrêter
+./wakdrop_backend.sh restart   # Redémarrer
+./wakdrop_backend.sh status    # Statut
+./wakdrop_backend.sh logs      # Logs temps réel
+./wakdrop_backend.sh test      # Test API
 ```
 
 #### 📍 **Accès**

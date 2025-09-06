@@ -2,7 +2,7 @@
 Endpoints API pour gérer les données de drop des monstres
 """
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
@@ -10,9 +10,8 @@ from datetime import datetime
 
 from core.database import get_db
 from models.cache import MonsterDrop, CachedMonster
+from models.zones import MonsterZone, Zone
 from services.drop_manager import drop_manager
-# from services.selenium_scraper import WakfuSeleniumScraper  # Module supprimé
-import asyncio
 
 router = APIRouter(prefix="/drops", tags=["drops"])
 
@@ -30,25 +29,50 @@ class DropResponse(BaseModel):
 class FarmRoadmapRequest(BaseModel):
     item_ids: List[int]
 
-class ScrapeRequest(BaseModel):
-    start_page: int = 1
-    end_page: int = 1
-    headless: bool = True
 
-class ImportItemsRequest(BaseModel):
-    item_ids: List[int]
 
-@router.get("/item/{item_id}", response_model=List[DropResponse])
+@router.get("/item/{item_id}")
 async def get_item_drops(item_id: int, db: Session = Depends(get_db)):
     """Récupère tous les monstres qui drop un item spécifique"""
-    drops = db.query(MonsterDrop).filter(
-        MonsterDrop.item_id == item_id
-    ).order_by(MonsterDrop.drop_rate.desc()).all()
+    
+    # Requête simple pour les drops
+    drops = db.query(MonsterDrop)\
+        .filter(MonsterDrop.item_id == item_id)\
+        .order_by(MonsterDrop.drop_rate.desc()).all()
     
     if not drops:
         raise HTTPException(status_code=404, detail="Aucun drop trouvé pour cet item")
     
-    return drops
+    # Enrichir les résultats avec les informations de zones
+    enriched_drops = []
+    processed_monsters = set()  # Pour éviter les doublons
+    
+    for drop in drops:
+        # Éviter les doublons si un monstre est dans plusieurs zones
+        if drop.monster_id in processed_monsters:
+            continue
+            
+        processed_monsters.add(drop.monster_id)
+        
+        # Récupérer la première zone associée à ce monstre
+        monster_zone = db.query(MonsterZone)\
+            .join(Zone)\
+            .filter(MonsterZone.monster_id == drop.monster_id)\
+            .first()
+            
+        
+        # Créer le résultat enrichi
+        drop_dict = {
+            "monster_id": drop.monster_id,
+            "monster_name": drop.monster_name,
+            "monster_level": drop.monster_level,
+            "item_id": drop.item_id,
+            "drop_rate": drop.drop_rate,
+            "zone_name": monster_zone.zone.name if monster_zone else None
+        }
+        enriched_drops.append(drop_dict)
+    
+    return enriched_drops
 
 @router.get("/monster/{monster_id}")
 async def get_monster_drops(monster_id: int, db: Session = Depends(get_db)):
@@ -102,95 +126,6 @@ async def generate_farm_roadmap(request: FarmRoadmapRequest):
     
     return roadmap
 
-@router.post("/scrape")
-async def scrape_monsters(
-    background_tasks: BackgroundTasks,
-    request: ScrapeRequest
-):
-    """
-    Lance le scraping des données de drop depuis l'encyclopédie Wakfu
-    
-    ⚠️ ATTENTION: Cette opération peut prendre du temps!
-    - 1 page ≈ 20 monstres ≈ 2-3 minutes
-    - Le scraping se fait en arrière-plan
-    """
-    async def run_scraping():
-        from services.improved_scraper import ImprovedScraper
-        from models.cache import MonsterDrop, CachedMonster
-        from sqlalchemy import and_
-        
-        scraper = ImprovedScraper(delay_min=1.0, delay_max=2.0)
-        db = SessionLocal()
-        
-        try:
-            # Scraper les monstres
-            monsters = await scraper.scrape_monsters(request.start_page, request.end_page)
-            
-            # Import en base de données
-            results = {'monsters_added': 0, 'drops_added': 0, 'drops_updated': 0, 'errors': []}
-            
-            for monster in monsters:
-                try:
-                    monster_id = monster['id']
-                    
-                    # Monstre en cache
-                    cached_monster = db.query(CachedMonster).filter(
-                        CachedMonster.wakfu_id == monster_id
-                    ).first()
-                    
-                    if not cached_monster:
-                        cached_monster = CachedMonster(
-                            wakfu_id=monster_id,
-                            name=monster['name'],
-                            level=monster.get('level'),
-                            data_json=monster
-                        )
-                        db.add(cached_monster)
-                        results['monsters_added'] += 1
-                    
-                    # Drops
-                    for drop in monster.get('drops', []):
-                        existing = db.query(MonsterDrop).filter(
-                            and_(
-                                MonsterDrop.monster_id == monster_id,
-                                MonsterDrop.item_id == drop['item_id']
-                            )
-                        ).first()
-                        
-                        if existing:
-                            if existing.drop_rate != drop['drop_rate']:
-                                existing.drop_rate = drop['drop_rate']
-                                results['drops_updated'] += 1
-                        else:
-                            new_drop = MonsterDrop(
-                                monster_id=monster_id,
-                                monster_name=monster['name'],
-                                monster_level=monster.get('level'),
-                                item_id=drop['item_id'],
-                                drop_rate=drop['drop_rate']
-                            )
-                            db.add(new_drop)
-                            results['drops_added'] += 1
-                    
-                    db.commit()
-                
-                except Exception as e:
-                    db.rollback()
-                    results['errors'].append(f"{monster.get('name', 'Unknown')}: {str(e)}")
-            
-            return results
-            
-        finally:
-            await scraper.close()
-            db.close()
-    
-    background_tasks.add_task(run_scraping)
-    
-    return {
-        "message": f"Scraping lancé pour les pages {request.start_page} à {request.end_page}",
-        "status": "Le scraping s'exécute en arrière-plan",
-        "estimated_time": f"~{(request.end_page - request.start_page + 1) * 2} minutes"
-    }
 
 class ImportDropsRequest(BaseModel):
     monsters: List[dict]
@@ -310,25 +245,6 @@ async def import_monster_drops(request: ImportDropsRequest, db: Session = Depend
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Erreur import: {str(e)}")
 
-@router.post("/import-items")
-async def import_items_drops(
-    background_tasks: BackgroundTasks,
-    request: ImportItemsRequest
-):
-    """
-    Importe les données de drop pour une liste spécifique d'items
-    
-    Plus rapide que le scraping complet si vous ne voulez que certains items
-    """
-    async def import_task():
-        return await drop_manager.import_drops_from_scraper(request.item_ids)
-    
-    background_tasks.add_task(import_task)
-    
-    return {
-        "message": f"Import lancé pour {len(request.item_ids)} items",
-        "status": "Import en cours en arrière-plan"
-    }
 
 @router.get("/stats")
 async def get_drop_stats(db: Session = Depends(get_db)):

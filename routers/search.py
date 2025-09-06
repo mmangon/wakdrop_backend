@@ -62,7 +62,7 @@ async def search_items(request: ItemSearchRequest, db: Session = Depends(get_db)
             
             if score > 0:  # Seulement si il y a une correspondance
                 # Extraire les infos supplémentaires
-                level = item_data.get('level')
+                level = item_data.get('definition', {}).get('item', {}).get('level')
                 item_type = get_item_type(item_data)
                 rarity = get_item_rarity(item_data)
                 
@@ -105,18 +105,24 @@ async def create_build_from_text(request: BuildFromTextRequest, db: Session = De
     missing_items = []
     
     for item_name in item_names:
-        # Chercher le meilleur match pour cet item
-        search_result = await search_items(
-            ItemSearchRequest(query=item_name, limit=1), 
+        # Chercher les meilleurs matchs pour cet item (plus large pour évaluer les raretés)
+        search_results = await search_items(
+            ItemSearchRequest(query=item_name, limit=10), 
             db
         )
         
-        if search_result and search_result[0].match_score >= 0.3:  # Score minimum
-            found_items.append({
-                'input_name': item_name,
-                'found_item': search_result[0],
-                'wakfu_id': search_result[0].wakfu_id
-            })
+        if search_results:
+            # Sélectionner le meilleur résultat en tenant compte de la rareté
+            best_item = select_best_item_with_rarity(item_name, search_results)
+            
+            if best_item and best_item.match_score >= 0.3:  # Score minimum
+                found_items.append({
+                    'input_name': item_name,
+                    'found_item': best_item,
+                    'wakfu_id': best_item.wakfu_id
+                })
+            else:
+                missing_items.append(item_name)
         else:
             missing_items.append(item_name)
     
@@ -164,18 +170,42 @@ def calculate_match_score(query: str, item_name: str) -> float:
     query_words = query.split()
     item_words = item_name.split()
     
+    # Vérifier si tous les mots de la query correspondent exactement
+    exact_word_matches = 0
+    for query_word in query_words:
+        if query_word in item_words:
+            exact_word_matches += 1
+    
+    # Si tous les mots correspondent exactement, score très élevé
+    if exact_word_matches == len(query_words):
+        return 0.95
+    
+    # Sinon, chercher des correspondances partielles (mais pas pour les mots trop courts)
     matches = 0
     for query_word in query_words:
+        matched = False
         for item_word in item_words:
-            if query_word in item_word or item_word in query_word:
-                matches += 1
-                break
+            # Ignorer les mots très courts (1-2 caractères) pour les correspondances partielles
+            if len(query_word) <= 2 and len(item_word) <= 2:
+                if query_word == item_word:
+                    matched = True
+                    break
+            else:
+                # Pour les mots plus longs, autoriser les correspondances partielles
+                if len(query_word) > 2 and query_word in item_word:
+                    matched = True
+                    break
+                elif len(item_word) > 2 and item_word in query_word:
+                    matched = True
+                    break
+        if matched:
+            matches += 1
     
     if matches == 0:
         return 0.0
     
     # Score basé sur le pourcentage de mots correspondants
-    word_score = matches / max(len(query_words), len(item_words))
+    word_score = matches / len(query_words) * 0.7  # Réduire le score de base
     
     # Bonus si le début correspond
     if item_name.startswith(query):
@@ -183,15 +213,71 @@ def calculate_match_score(query: str, item_name: str) -> float:
     
     return min(word_score, 1.0)
 
+def select_best_item_with_rarity(query: str, search_results: List[ItemSearchResult]) -> Optional[ItemSearchResult]:
+    """
+    Sélectionne le meilleur item en tenant compte de la rareté mentionnée dans la query
+    """
+    if not search_results:
+        return None
+    
+    query_lower = query.lower()
+    
+    # Mots-clés de rareté
+    rarity_keywords = {
+        'commun': 'Commun',
+        'inhabituel': 'Inhabituel', 
+        'rare': 'Rare',
+        'mythique': 'Mythique',
+        'légendaire': 'Légendaire',
+        'legendaire': 'Légendaire',
+        'relique': 'Relique',
+        'épique': 'Épique',
+        'epique': 'Épique'
+    }
+    
+    # Chercher si une rareté est mentionnée dans la query
+    mentioned_rarity = None
+    for keyword, rarity in rarity_keywords.items():
+        if keyword in query_lower:
+            mentioned_rarity = rarity
+            break
+    
+    # Si une rareté est mentionnée, privilégier les items de cette rareté
+    if mentioned_rarity:
+        for result in search_results:
+            if result.rarity == mentioned_rarity:
+                # Ajuster le score pour privilégier la correspondance exacte de rareté
+                result.match_score = min(result.match_score + 0.2, 1.0)
+                return result
+    
+    # Sinon, retourner le premier résultat (meilleur score)
+    return search_results[0]
+
 def get_item_type(item_data: dict) -> Optional[str]:
     """Extrait le type d'item depuis les données CDN"""
     try:
-        # Essayer différents champs possibles
+        # Essayer de récupérer itemTypeId depuis baseParameters
         if 'definition' in item_data:
             def_data = item_data['definition']
             if 'item' in def_data:
                 item_info = def_data['item']
-                return item_info.get('itemType', item_info.get('category'))
+                # Chercher dans baseParameters
+                base_params = item_info.get('baseParameters', {})
+                item_type_id = base_params.get('itemTypeId')
+                if item_type_id:
+                    # Mapper les IDs de type aux noms (à compléter)
+                    type_map = {
+                        134: "Coiffe",
+                        133: "Casque",
+                        136: "Cape",
+                        138: "Plastron",
+                        119: "Anneau",
+                        120: "Amulette",
+                        103: "Bottes",
+                        132: "Ceinture",
+                        646: "Épaulettes"
+                    }
+                    return type_map.get(item_type_id, f"Type {item_type_id}")
         
         # Autres possibilités
         return item_data.get('itemType') or item_data.get('category')
@@ -201,15 +287,19 @@ def get_item_type(item_data: dict) -> Optional[str]:
 def get_item_rarity(item_data: dict) -> Optional[str]:
     """Extrait la rareté depuis les données CDN"""
     try:
-        rarity_id = item_data.get('definition', {}).get('item', {}).get('rarity')
+        # Chercher dans baseParameters
+        base_params = item_data.get('definition', {}).get('item', {}).get('baseParameters', {})
+        rarity_id = base_params.get('rarity')
         if rarity_id is not None:
             rarity_map = {
                 0: "Commun",
-                1: "Rare", 
-                2: "Mythique",
-                3: "Légendaire",
-                4: "Relique",
-                5: "Épique"
+                1: "Inhabituel",
+                2: "Rare",
+                3: "Mythique",
+                4: "Légendaire",
+                5: "Relique",
+                6: "Épique",
+                7: "Souvenir"
             }
             return rarity_map.get(rarity_id, f"Rareté {rarity_id}")
         return None
