@@ -87,8 +87,8 @@ wakdrop_backend/
 
 ### 🎮 Builds (Gestion des builds)
 - `POST /builds/` - Crée un build depuis une liste d'items
-- `GET /builds/{id}` - Récupère les détails d'un build
-- `GET /builds/{id}/roadmap` - **🔥 Génère la roadmap de farm complète**
+- `GET /builds/{id}` - **🔥 Récupère les détails d'un build AVEC roadmap complète** (nouveau!)
+- `GET /builds/{id}/roadmap` - Génère uniquement la roadmap de farm (déprécié, utiliser `/builds/{id}`)
 - `POST /builds/{id}/analyze` - Analyse complète avec données de drop
 
 ### 📦 Items (Gestion des items)  
@@ -156,6 +156,14 @@ farm_data: dict        # Infos spécifiques farm
    - Zones de farm avec taux de drop
    - Temps estimé de farm
 4. **Utilisateur** reçoit sa roadmap complète
+
+### 🔧 **Méthode Alternative : Build Existant**
+1. **Utilisateur** fait : `GET /builds/{id}` 
+2. **API** retourne **la même structure** que `/search/build-from-text` :
+   - Détails du build (build_id, created_at)
+   - Items trouvés avec leurs détails complets
+   - Roadmap de farm optimisée intégrée
+3. **Avantage** : Une seule requête au lieu de deux !
 
 ### 🔧 **Méthode Avancée : Recherche Item par Item**
 1. **Utilisateur** tape : `"épée"`
@@ -254,16 +262,20 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - **👾 844 monstres** avec 12,635+ données de drop importées
 - **🏛️ Interface d'administration des zones** avec association monstres/zones
 - **🗺️ Génération automatique de roadmaps** de farm optimisées avec zones
-- **📚 Documentation API complète** pour le frontend (v0.4.0)
+- **🆕 Endpoint `/builds/{id}` unifié** avec roadmap complète intégrée
+- **📚 Documentation API complète** pour le frontend (v0.4.1)
 - **🔗 CORS configuré** pour Vue.js
 - **⚡ API REST rapide** avec FastAPI + PostgreSQL
 
 ### 🚀 **Prêt pour le Frontend**
-- **Endpoint principal** : `POST /search/build-from-text`
+- **Endpoints principaux** : 
+  - `POST /search/build-from-text` - Création depuis texte
+  - `GET /builds/{id}` - Récupération avec roadmap complète
 - **Interface simple** : L'utilisateur tape du texte libre
 - **Résultat immédiat** : Roadmap complète avec zones de farm
+- **Une seule requête** : Plus besoin d'appels séparés build + roadmap
 - **Administration** : Interface web pour gérer les zones (`/static/admin_zones.html`)
-- **Documentation** : Voir `API_DOCUMENTATION.md` (v0.4.0)
+- **Documentation** : Voir `API_DOCUMENTATION.md` (v0.4.1)
 
 ### 🔧 **Améliorations Futures (Optionnelles)**
 - [ ] Cache Redis pour performances

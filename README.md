@@ -1,28 +1,29 @@
 # 🎮 WakDrop Backend
 
-API REST pour analyser les builds Wakfu et générer des roadmaps de farm optimisées. Indique **quels monstres farmer**, dans **quelles zones**, avec les **taux de drop** précis.
+API REST pour créer des builds Wakfu et générer des **roadmaps de farm détaillées**. Indique **quels monstres farmer**, dans **quelles zones**, avec les **taux de drop** précis.
 
 ## ✨ Fonctionnalités
 
-- 🏗️ **Parse des builds Zenith** - Extraction automatique des équipements
-- 👾 **Scraping des drops** - Récupération des données depuis l'encyclopédie Wakfu  
-- 📊 **Roadmaps optimisées** - Génération de parcours de farm par zones
-- 🔄 **Sync CDN Wakfu** - Mise à jour des items, recettes, récoltes
-- 📦 **Cache intelligent** - Stockage PostgreSQL pour performances optimales
+- 🔍 **Recherche intelligente d'items** - Par texte libre avec scoring de pertinence
+- 🎯 **Création de builds depuis texte** - "Épée Iop, Cape du Feu, Anneau PA"
+- 🗺️ **Roadmaps optimisées** - Génération automatique par zones avec priorités
+- 🔄 **Sync CDN Wakfu** - 8,230+ items synchronisés automatiquement
+- 👾 **Base de données complète** - 844 monstres avec 12,635+ drops pré-importés
+- 🏛️ **Administration des zones** - Interface web pour gérer les zones et monstres
+- 📦 **API unifiée** - Structure identique entre création et récupération de builds
 
 ## 🛠️ Stack Technique
 
 - **FastAPI** 0.104.1 - Framework web moderne et performant
 - **PostgreSQL** - Base de données avec support JSON
 - **SQLAlchemy** 2.0 - ORM Python
-- **Selenium** - Scraping de l'encyclopédie Wakfu
-- **httpx** - Client HTTP asynchrone
+- **httpx** - Client HTTP asynchrone pour CDN Wakfu
+- **Recherche intelligente** - Algorithme de matching avec scores de pertinence
 
 ## 📋 Prérequis
 
 - Python 3.9+
 - PostgreSQL
-- Chrome/Chromium (pour Selenium)
 
 ## 🚀 Installation
 
@@ -60,11 +61,9 @@ WAKFU_VERSION=1.88.1.39
 
 ```bash
 # Méthode 1: Script automatique (recommandé)
-python initialize.py --pages 5 --headless
+python initialize.py
 
-# Méthode 2: Via l'API
-python main.py
-# Dans un autre terminal:
+# Méthode 2: Via l'API (après lancement du serveur)
 curl -X POST http://localhost:8000/admin/initialize
 ```
 
@@ -82,36 +81,58 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
 
 ## 🎯 Utilisation Rapide
 
-### Analyser un build Zenith
+### Créer un build depuis du texte
 
 ```bash
-# 1. Parser le build
-curl -X POST http://localhost:8000/builds/ \
+# 1. Créer un build depuis du texte libre
+curl -X POST http://localhost:8000/search/build-from-text \
   -H "Content-Type: application/json" \
-  -d '{"zenith_url": "https://www.zenithwakfu.com/builder/xxxxx"}'
+  -d '{"items_text": "Épée Iop, Cape du Feu, Anneau PA", "build_name": "Mon Build Tank"}'
 
-# 2. Récupérer la roadmap de farm
-curl http://localhost:8000/builds/1/roadmap
+# 2. Récupérer un build avec sa roadmap complète
+curl http://localhost:8000/builds/1
 ```
 
 ### Résultat exemple
 
 ```json
 {
-  "zones": {
-    "Astrub": {
-      "monsters": [12, 34, 56],
-      "total_items": 5,
-      "avg_drop_rate": 15.5
+  "build_name": "Mon Build Tank",
+  "items_found": [
+    {
+      "input_name": "Épée Iop",
+      "found_item": {
+        "wakfu_id": 12345,
+        "name": "Épée du Iop Suprême",
+        "level": 200,
+        "rarity": "Légendaire",
+        "match_score": 0.85
+      }
     }
-  },
-  "monsters": {
-    "12": {
-      "name": "Bouftou",
-      "level": 10,
-      "items": [
-        {"item_id": 789, "drop_rate": 25.0}
-      ]
+  ],
+  "items_missing": [],
+  "items_count": 3,
+  "farm_roadmap": {
+    "zones_organized": [
+      {
+        "name": "Spirale du vide",
+        "total_items": 2,
+        "avg_drop_rate": 0.625,
+        "monsters": [
+          {
+            "id": 5283,
+            "name": "Ar'Nan, Augure du néant",
+            "items": [
+              {"item_id": 12345, "drop_rate": 1.0}
+            ]
+          }
+        ]
+      }
+    ],
+    "summary": {
+      "total_items": 3,
+      "total_zones": 1,
+      "total_monsters": 1
     }
   }
 }
@@ -119,28 +140,41 @@ curl http://localhost:8000/builds/1/roadmap
 
 ## 📚 Endpoints Principaux
 
-### Builds
-- `POST /builds/` - Parse un build Zenith
-- `GET /builds/{id}/roadmap` - Génère la roadmap de farm
+### Recherche et Builds
+- `POST /search/items` - Recherche d'items par texte libre
+- `POST /search/build-from-text` - **Endpoint principal** - Créer build depuis texte
+- `GET /builds/{id}` - **Nouveau** - Récupère build avec roadmap complète
+- `POST /builds/` - Créer build depuis liste d'items
 
-### Drops
-- `POST /drops/farm-roadmap` - Roadmap pour liste d'items
-- `POST /drops/scrape` - Lance le scraping de monstres
+### Données de Drop
+- `GET /drops/item/{item_id}` - Monstres qui drop un item
+- `POST /drops/farm-roadmap` - Roadmap optimisée pour liste d'items
 - `GET /drops/stats` - Statistiques des données
 
-### Admin
-- `POST /admin/initialize` - Initialisation complète
+### Administration
+- `POST /admin/initialize` - Initialisation complète du système
+- `GET /admin/zones/zones` - Interface de gestion des zones
 - `GET /admin/system-info` - État du système
+
+### CDN et Cache
+- `POST /cdn/sync` - Synchronisation avec le CDN Wakfu
+- `GET /items/{id}` - Détails d'un item depuis le cache
 
 Voir tous les endpoints: http://localhost:8000/docs
 
 ## 🔄 Workflow
 
-1. **Frontend Vue.js** envoie l'URL Zenith
-2. **Backend parse** les équipements du build
-3. **Analyse** des monstres qui drop ces items
-4. **Génération** d'une roadmap optimisée par zones
-5. **Affichage** dans le frontend avec taux de drop
+### Création de Build
+1. **Frontend Vue.js** envoie du texte libre: "Épée Iop, Cape du Feu, Anneau PA"
+2. **Backend recherche** les items correspondants avec scoring intelligent
+3. **Analyse automatique** des monstres qui drop ces items
+4. **Génération** d'une roadmap optimisée par zones avec priorités
+5. **Affichage** dans le frontend avec zones organisées et taux de drop
+
+### Récupération de Build
+1. **Frontend** demande: `GET /builds/{id}`
+2. **Backend retourne** directement build + roadmap complète
+3. **Structure identique** à la création pour faciliter l'intégration
 
 ## 🐛 Troubleshooting
 
@@ -153,20 +187,22 @@ sudo service postgresql status
 createdb wakdrop
 ```
 
-### Erreur Selenium
+### Pas de données d'items
 ```bash
-# Installer Chrome/Chromium
-sudo apt install chromium-browser
+# Synchroniser avec le CDN Wakfu
+curl -X POST http://localhost:8000/cdn/sync
 
-# Ou utiliser mode headless
-python initialize.py --headless
+# Vérifier les statistiques
+curl http://localhost:8000/cdn/stats
 ```
 
 ### Pas de données de drop
 ```bash
-# Lancer le scraping initial (5 pages = ~100 monstres)
-curl -X POST http://localhost:8000/drops/scrape \
-  -d '{"start_page": 1, "end_page": 5}'
+# Vérifier les statistiques des drops
+curl http://localhost:8000/drops/stats
+
+# Les données sont pré-importées à l'initialisation
+curl -X POST http://localhost:8000/admin/initialize
 ```
 
 ## 📝 License

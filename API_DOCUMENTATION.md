@@ -214,15 +214,86 @@ export default {
 
 ### 3. **Gestion des Builds** - `/builds/`
 
-#### GET `/builds/{build_id}`
+🆕 **Mise à jour majeure** : L'endpoint `/builds/{build_id}` retourne maintenant **la roadmap complète** !
+
+#### GET `/builds/{build_id}` 🔥
+**Nouveau** : Retourne les détails du build **avec sa roadmap complète**, identique à `/search/build-from-text`.
+
 ```json
 {
-  "id": 1,
-  "zenith_url": null,
-  "zenith_id": "Mon Build Tank", 
-  "items_ids": [12345, 67890],
-  "created_at": "2024-01-15T10:30:00"
+  "build_id": 6,
+  "build_name": "Mon Build Tank",
+  "created_at": "2025-09-06T18:41:18.263523+00:00",
+  "items_found": [
+    {
+      "input_name": "Heaume du Chevalier Creux",
+      "found_item": {
+        "wakfu_id": 29155,
+        "name": "Heaume du Chevalier Creux",
+        "level": 228,
+        "item_type": "Coiffe",
+        "rarity": "Mythique",
+        "match_score": 1.0,
+        "obtention_type": "unknown"
+      },
+      "wakfu_id": 29155
+    }
+  ],
+  "items_missing": [],
+  "items_count": 2,
+  "missing_count": 0,
+  "farm_roadmap": {
+    "zones_organized": [
+      {
+        "name": "Spirale du vide",
+        "total_items": 2,
+        "avg_drop_rate": 0.625,
+        "expanded": false,
+        "monsters": [
+          {
+            "id": 5283,
+            "name": "Ar'Nan, Augure du néant",
+            "level": null,
+            "items": [
+              {
+                "item_id": 29155,
+                "drop_rate": 1.0
+              },
+              {
+                "item_id": 29156,
+                "drop_rate": 0.25
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "zones": {...},
+    "monsters": {...},
+    "summary": {
+      "total_items": 2,
+      "total_zones": 1,
+      "total_monsters": 1
+    }
+  }
 }
+```
+
+**Avantages de cette mise à jour :**
+- ✅ **Une seule requête** au lieu de deux (`/builds/{id}` + `/builds/{id}/roadmap`)
+- ✅ **Structure identique** à `/search/build-from-text` pour une intégration facilitée
+- ✅ **Détails complets** : nom des items, niveaux, raretés, zones organisées
+- ✅ **Gestion des erreurs** : items manquants du cache affichés clairement
+
+**Utilisation dans Vue.js :**
+```javascript
+// Avant : 2 requêtes
+const build = await fetch(`/builds/${buildId}`).then(r => r.json())
+const roadmap = await fetch(`/builds/${buildId}/roadmap`).then(r => r.json())
+
+// Maintenant : 1 seule requête !
+const buildWithRoadmap = await fetch(`/builds/${buildId}`).then(r => r.json())
+// → Contient directement build_id, build_name, items_found, farm_roadmap, etc.
 ```
 
 #### POST `/builds/`
@@ -235,7 +306,8 @@ export default {
 ```
 
 #### GET `/builds/{build_id}/roadmap`
-Génère la roadmap de farm pour un build existant.
+⚠️ **Déprécié mais maintenu** : Utilisez directement `/builds/{build_id}` qui contient la roadmap.
+Génère uniquement la roadmap de farm pour un build existant.
 
 ---
 
