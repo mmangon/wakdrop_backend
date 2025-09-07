@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from core.database import engine, Base
-from routers import builds, items, cdn, drops, admin, search, zones_admin
+from routers import builds, items, cdn, drops, admin, search, zones_admin, zenith
 
 # Créer les tables
 Base.metadata.create_all(bind=engine)
@@ -10,7 +10,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(
     title="WakDrop API",
     description="API pour analyser les builds Wakfu et générer des roadmaps de farm optimisées",
-    version="0.4.0"
+    version="0.5.0"
 )
 
 app.add_middleware(
@@ -29,6 +29,7 @@ app.include_router(drops.router)
 app.include_router(admin.router)
 app.include_router(search.router)
 app.include_router(zones_admin.router)
+app.include_router(zenith.router)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -37,7 +38,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def root():
     return {
         "message": "WakDrop API is running", 
-        "version": "0.4.0",
+        "version": "0.5.0",
         "docs": "/docs",
         "endpoints": {
             "builds": "/builds",
@@ -45,6 +46,7 @@ async def root():
             "cdn": "/cdn",
             "drops": "/drops",
             "search": "/search",
+            "zenith": "/zenith",
             "zones_admin": "/admin/zones",
             "zones_interface": "/static/admin_zones.html"
         }

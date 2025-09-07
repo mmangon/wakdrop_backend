@@ -31,16 +31,24 @@ Application pour créer des builds Wakfu et générer des **roadmaps de farm dé
 wakdrop_backend/
 ├── models/          # SQLAlchemy models
 │   ├── build.py     # Builds utilisateur
-│   └── cache.py     # Cache items CDN + données de drop
+│   ├── cache.py     # Cache items CDN + données de drop
+│   └── zones.py     # Zones géographiques et associations monstres
 ├── services/        
 │   ├── wakfu_cdn.py # Sync CDN Wakfu + analyse obtention
 │   ├── drop_manager.py # Génération roadmaps farm optimisées
-│   └── analysis.py  # Services d'analyse 
+│   ├── analysis.py  # Services d'analyse
+│   └── zenith/      # 🆕 Services d'extraction ZenithWakfu
+│       ├── zenith_extractor.py      # Extraction complète avec tooltips
+│       ├── zenith_fast_extractor.py # Extraction rapide nom + ID
+│       ├── zenith_minimal_extractor.py # Ultra-rapide (IDs uniquement)
+│       └── extract_zenith_subprocess.py # Subprocess pour API
 ├── routers/         # Endpoints FastAPI
 │   ├── builds.py    # CRUD builds
 │   ├── search.py    # 🔍 Recherche d'items + création builds depuis texte
+│   ├── zenith.py    # 🆕 Import builds depuis ZenithWakfu
 │   ├── items.py     # Détails items 
 │   ├── drops.py     # Données de drop des monstres
+│   ├── zones_admin.py # Administration des zones
 │   ├── cdn.py       # Sync CDN
 │   └── admin.py     # Initialisation système
 ├── core/            # Config, DB, dependencies
@@ -79,9 +87,36 @@ wakdrop_backend/
 
 ⚠️ **IMPORTANT**: Le CDN ne fournit PAS les données de drop des monstres. Ces données ont été importées depuis des scripts de scraping externes.
 
+### 🚀 ZenithWakfu - Extraction d'Items (NOUVEAU)
+
+Le système peut désormais extraire directement les builds depuis **ZenithWakfu** !
+
+**Fonctionnement** :
+- **Playwright** navigue sur ZenithWakfu en mode headless
+- **Gestion automatique** du modal de consentement GDPR  
+- **Extraction des noms et raretés** depuis les tooltips HTML
+- **Extraction des IDs Wakfu** depuis les images : `../images/items/ID.webp`  
+- **Mapping automatique** avec la base de données locale
+- **Mapping des raretés** ZenithWakfu vers français : `legendary` → `Légendaire`
+- **Temps d'exécution** : ~10-15 secondes pour un build complet
+
+**Architecture d'extraction** :
+- `zenith_extractor.py` - Version complète avec tooltips et stats
+- `zenith_fast_extractor.py` - Version rapide avec nom + ID
+- `zenith_simple_extractor.py` - **Version utilisée** : Noms + raretés (ultra-rapide)  
+- `zenith_minimal_extractor.py` - Version IDs uniquement (dépréciée)
+- `extract_zenith_subprocess.py` - Interface subprocess pour l'API
+
+**Les IDs extraits correspondent exactement aux IDs du CDN Ankama** ✅  
+**Les raretés extraites sont correctement mappées vers le français** ✅
+
 ## 🚀 Endpoints API
 
-### 🔍 **Search** (Cœur du système - Recherche intelligente)
+### 🚀 **Zenith** (Nouveau - Import ZenithWakfu)
+- `POST /zenith/import` - **🔥 NEW: Import direct depuis ZenithWakfu**
+- `GET /zenith/import/{build_id}` - Récupère un build importé avec roadmap
+
+### 🔍 **Search** (Cœur du système - Recherche intelligente)  
 - `POST /search/items` - **⭐ Recherche d'items par texte libre**
 - `POST /search/build-from-text` - **🔥 Créer un build depuis du texte : "Épée Iop, Cape du Feu"**
 
@@ -145,7 +180,20 @@ farm_data: dict        # Infos spécifiques farm
 
 ## 🔄 Workflow Utilisateur Final
 
-### ✨ **Méthode Principale : Recherche par Texte**
+### 🚀 **Méthode Principale : Import ZenithWakfu** (NOUVEAU)
+1. **Utilisateur** copie l'URL de son build : `https://www.zenithwakfu.com/builder/henpz`
+2. **Frontend** appelle : `POST /zenith/import` avec l'URL
+3. **API** extrait automatiquement :
+   - Les IDs Wakfu de tous les items équipés (~10-15 secondes)
+   - Mappe avec la base de données locale
+   - Crée le build en base
+   - Génère la roadmap complète
+4. **Utilisateur** reçoit immédiatement :
+   - Build créé avec `build_id`
+   - Liste des items trouvés/manquants  
+   - Roadmap de farm optimisée
+
+### ✨ **Méthode Alternative : Recherche par Texte**
 1. **Utilisateur** saisit : `"Épée Iop niveau 200, Cape du feu, Anneau PA"`
 2. **API** (`/search/build-from-text`) :
    - Recherche automatiquement les items correspondants
@@ -256,6 +304,8 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ## 📊 État actuel du système
 
 ### ✅ **Système Complet et Fonctionnel**
+- **🚀 Import direct depuis ZenithWakfu** avec extraction ultra-rapide (10-15s)
+- **🎨 Raretés ZenithWakfu authentiques** : `Légendaire`, `Épique`, `Relique`, `Rare`
 - **🔍 Recherche intelligente d'items par texte** avec scoring de pertinence
 - **🎯 Création de builds depuis texte libre** : "Épée Iop, Cape du Feu"
 - **📊 8,230+ items** synchronisés depuis le CDN Wakfu
@@ -263,19 +313,21 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - **🏛️ Interface d'administration des zones** avec association monstres/zones
 - **🗺️ Génération automatique de roadmaps** de farm optimisées avec zones
 - **🆕 Endpoint `/builds/{id}` unifié** avec roadmap complète intégrée
-- **📚 Documentation API complète** pour le frontend (v0.4.1)
+- **📚 Documentation API complète** pour le frontend (v0.5.0)
 - **🔗 CORS configuré** pour Vue.js
 - **⚡ API REST rapide** avec FastAPI + PostgreSQL
 
 ### 🚀 **Prêt pour le Frontend**
 - **Endpoints principaux** : 
+  - `POST /zenith/import` - **NOUVEAU** Import depuis ZenithWakfu
   - `POST /search/build-from-text` - Création depuis texte
   - `GET /builds/{id}` - Récupération avec roadmap complète
-- **Interface simple** : L'utilisateur tape du texte libre
-- **Résultat immédiat** : Roadmap complète avec zones de farm
-- **Une seule requête** : Plus besoin d'appels séparés build + roadmap
+- **Workflow simplifié** : 
+  1. URL ZenithWakfu → `POST /zenith/import` → Build + Roadmap
+  2. Texte libre → `POST /search/build-from-text` → Build + Roadmap
+- **Une seule requête** : Plus besoin d'appels séparés
 - **Administration** : Interface web pour gérer les zones (`/static/admin_zones.html`)
-- **Documentation** : Voir `API_DOCUMENTATION.md` (v0.4.1)
+- **Documentation** : Voir `API_DOCUMENTATION.md` (v0.5.0)
 
 ### 🔧 **Améliorations Futures (Optionnelles)**
 - [ ] Cache Redis pour performances

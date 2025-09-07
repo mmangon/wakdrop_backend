@@ -116,10 +116,15 @@ async def create_build_from_text(request: BuildFromTextRequest, db: Session = De
             best_item = select_best_item_with_rarity(item_name, search_results)
             
             if best_item and best_item.match_score >= 0.3:  # Score minimum
+                # Structure PLATE attendue par le frontend
                 found_items.append({
-                    'input_name': item_name,
-                    'found_item': best_item,
-                    'wakfu_id': best_item.wakfu_id
+                    'wakfu_id': best_item.wakfu_id,
+                    'name': best_item.name,
+                    'level': best_item.level,
+                    'item_type': best_item.item_type,
+                    'rarity': best_item.rarity,
+                    'match_score': best_item.match_score,
+                    'obtention_type': best_item.obtention_type
                 })
             else:
                 missing_items.append(item_name)
@@ -132,7 +137,7 @@ async def create_build_from_text(request: BuildFromTextRequest, db: Session = De
             detail=f"Aucun item trouvé pour: {', '.join(missing_items)}"
         )
     
-    # Créer le build avec les items trouvés
+    # Créer le build avec les items trouvés (structure plate)
     items_ids = [item['wakfu_id'] for item in found_items]
     
     # Utiliser le drop_manager pour générer la roadmap

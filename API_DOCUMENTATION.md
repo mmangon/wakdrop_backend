@@ -1,15 +1,59 @@
 # 🎯 WakDrop API - Documentation Frontend
 
 **Base URL**: `https://wakdropbackend-master-dev-mmangon.nabricot.pandabyte.ovh` (production)  
-**API Version**: 0.4.0  
+**API Version**: 0.6.0  
 **Documentation interactive**: https://wakdropbackend-master-dev-mmangon.nabricot.pandabyte.ovh/docs
 
-## 🆕 **Mise à jour v0.4.0** - Zones et Administration
+## 🆕 **Mise à jour v0.6.0** - Structure Plate & Performance
 
-- ✅ **Interface d'administration des zones** : Gérez les zones et associez les monstres
-- ✅ **API zones intégrée** : Les drops retournent maintenant les zones associées  
+- 🎯 **BREAKING: Structure plate unifiée** : Tous les endpoints retournent maintenant une structure cohérente !
+- ⚡ **Performance améliorée** : Import ZenithWakfu en ~7-10 secondes (50% plus rapide)
+- 🔍 **Rareté extraite** : Les raretés sont maintenant détectées depuis ZenithWakfu
+- 🚀 **Import depuis ZenithWakfu** : Workflow principal pour importer vos builds
 - ✅ **Base de données enrichie** : 844 monstres avec 12,635+ drops
-- ✅ **Système complet et optimisé** : Nettoyage et maintenance du code
+
+---
+
+## ⚠️ **BREAKING CHANGES v0.6.0**
+
+### Structure Plate Unifiée
+
+**AVANT v0.6.0** (structure imbriquée) :
+```javascript
+// Accès compliqué aux données
+const itemName = item.found_item.name
+const itemRarity = item.found_item.rarity
+const itemLevel = item.found_item.level
+```
+
+**MAINTENANT v0.6.0** (structure plate) :
+```javascript
+// Accès direct et simple
+const itemName = item.name
+const itemRarity = item.rarity  
+const itemLevel = item.level
+```
+
+### Tous les endpoints concernés :
+- ✅ `/zenith/import`
+- ✅ `/builds/{id}` 
+- ✅ `/search/build-from-text`
+- ✅ `/search/items`
+
+### Migration Frontend :
+```javascript
+// ANCIEN CODE (ne fonctionne plus)
+items.forEach(item => {
+  console.log(item.found_item.name)
+})
+
+// NOUVEAU CODE (v0.6.0+)
+items.forEach(item => {
+  console.log(item.name)
+  console.log(item.rarity)     // Maintenant disponible partout !
+  console.log(item.item_type)  // Type d'équipement
+})
+```
 
 ---
 
@@ -56,7 +100,102 @@ async searchItems(query) {
 
 ---
 
-### 2. **Créer Build depuis Texte** - `/search/build-from-text`
+### 2. **🚀 NEW: Import depuis ZenithWakfu** - `/zenith/import`
+
+**Nouveau workflow principal** - Importez directement vos builds depuis ZenithWakfu !
+
+**Fonctionnalités :**
+- **Extraction automatique** des items depuis l'URL ZenithWakfu
+- **Raretés authentiques** ZenithWakfu : `Légendaire`, `Épique`, `Relique`, `Rare`  
+- **Mapping intelligent** avec la base de données locale
+- **Génération immédiate** de la roadmap de farm
+
+#### POST `/zenith/import`
+
+```json
+// Request
+{
+  "zenith_url": "https://www.zenithwakfu.com/builder/henpz",
+  "build_name": "Mon Super Build" // optionnel
+}
+
+// Response - Structure PLATE v0.6.0
+{
+  "build_id": 123,
+  "build_name": "Mon Super Build",
+  "items_found": [
+    {
+      "wakfu_id": 29155,
+      "name": "Heaume du Chevalier Creux",
+      "level": 228,
+      "item_type": "Coiffe",
+      "rarity": "Légendaire", // ✅ Rareté authentique ZenithWakfu
+      "match_score": 1.0,
+      "obtention_type": "unknown"
+    }
+  ],
+  "items_missing": [],
+  "items_count": 13,
+  "missing_count": 0,
+  "farm_roadmap": {
+    "monsters": {
+      "5306": {
+        "name": "Rushu",
+        "items": [...]
+      }
+    },
+    "zones_organized": [...],
+    "summary": {
+      "total_items": 13,
+      "total_monsters": 18
+    }
+  },
+  "created_at": "2025-09-07T09:41:10.716007+00:00"
+}
+```
+
+**Utilisation dans Vue.js:**
+```javascript
+async importFromZenith(zenithUrl, buildName = null) {
+  const response = await fetch('https://wakdropbackend-master-dev-mmangon.nabricot.pandabyte.ovh/zenith/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      zenith_url: zenithUrl,
+      build_name: buildName 
+    })
+  })
+  
+  if (!response.ok) {
+    throw new Error(`Erreur ${response.status}: ${await response.text()}`)
+  }
+  
+  return response.json()
+}
+
+// Utilisation
+try {
+  const result = await importFromZenith('https://www.zenithwakfu.com/builder/henpz', 'Mon Build')
+  console.log(`Build créé avec ID: ${result.build_id}`)
+  console.log(`Items trouvés: ${result.items_found.length}`)
+  
+  // Accéder à la roadmap complète
+  const fullRoadmap = await fetch(`/builds/${result.build_id}`).then(r => r.json())
+} catch (error) {
+  console.error('Erreur import:', error.message)
+}
+```
+
+**🔥 Avantages :**
+- ⚡ **Ultra-rapide** : 7-10 secondes pour extraire un build complet (50% plus rapide)
+- 🔍 **Rareté détectée** : Extrait automatiquement les raretés depuis ZenithWakfu
+- 🎯 **Mapping automatique** : Trouve automatiquement les items dans votre base
+- 📍 **Roadmap incluse** : Retourne directement la roadmap de farm
+- 🏗️ **Structure unifiée** : Même format que tous les autres endpoints
+
+---
+
+### 3. **Créer Build depuis Texte** - `/search/build-from-text`
 
 **Workflow principal** - L'utilisateur tape ses items en texte libre.
 
@@ -78,19 +217,18 @@ Vous pouvez maintenant spécifier la rareté directement dans le texte !
   "build_name": "Mon Build Tank"
 }
 
-// Response
+// Response - Structure PLATE v0.6.0
 {
   "build_name": "Mon Build Tank",
   "items_found": [
     {
-      "input_name": "Épée Iop",
-      "found_item": {
-        "wakfu_id": 12345,
-        "name": "Épée du Iop Suprême",
-        "level": 200,
-        "match_score": 0.85
-      },
-      "wakfu_id": 12345
+      "wakfu_id": 12345,
+      "name": "Épée du Iop Suprême",
+      "level": 200,
+      "item_type": "Épée",
+      "rarity": "Rare",
+      "match_score": 0.85,
+      "obtention_type": "craft"
     }
   ],
   "items_missing": ["Item inexistant"],
@@ -220,23 +358,20 @@ export default {
 **Nouveau** : Retourne les détails du build **avec sa roadmap complète**, identique à `/search/build-from-text`.
 
 ```json
+// Response - Structure PLATE v0.6.0
 {
   "build_id": 6,
   "build_name": "Mon Build Tank",
   "created_at": "2025-09-06T18:41:18.263523+00:00",
   "items_found": [
     {
-      "input_name": "Heaume du Chevalier Creux",
-      "found_item": {
-        "wakfu_id": 29155,
-        "name": "Heaume du Chevalier Creux",
-        "level": 228,
-        "item_type": "Coiffe",
-        "rarity": "Mythique",
-        "match_score": 1.0,
-        "obtention_type": "unknown"
-      },
-      "wakfu_id": 29155
+      "wakfu_id": 29155,
+      "name": "Heaume du Chevalier Creux",
+      "level": 228,
+      "item_type": "Coiffe",
+      "rarity": "Légendaire", // ✅ Rareté authentique ZenithWakfu
+      "match_score": 1.0,
+      "obtention_type": "unknown"
     }
   ],
   "items_missing": [],

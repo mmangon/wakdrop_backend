@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from pydantic import BaseModel, Field
 from datetime import datetime
+import sys
 
 from core.database import get_db
 from models.build import Build
@@ -71,20 +72,19 @@ async def get_build(build_id: int, db: Session = Depends(get_db)):
                 from routers.search import get_item_type, get_item_rarity
                 level = item_data.get('definition', {}).get('item', {}).get('level') if isinstance(item_data, dict) else None
                 item_type = get_item_type(item_data) if isinstance(item_data, dict) else None
+                
+                # Utiliser la rareté du CDN Wakfu
                 rarity = get_item_rarity(item_data) if isinstance(item_data, dict) else None
                 
+                # Structure PLATE attendue par le frontend
                 items_found.append({
-                    'input_name': item_name,
-                    'found_item': {
-                        'wakfu_id': item_id,
-                        'name': item_name,
-                        'level': level,
-                        'item_type': item_type,
-                        'rarity': rarity,
-                        'match_score': 1.0,  # Score parfait car c'est un item exact du build
-                        'obtention_type': cached_item.obtention_type
-                    },
-                    'wakfu_id': item_id
+                    'wakfu_id': item_id,
+                    'name': item_name,
+                    'level': level,
+                    'item_type': item_type,
+                    'rarity': rarity,
+                    'match_score': 1.0,  # Score parfait car c'est un item exact du build
+                    'obtention_type': cached_item.obtention_type
                 })
             except Exception as e:
                 items_missing.append(f'Item {item_id} (erreur de données)')
