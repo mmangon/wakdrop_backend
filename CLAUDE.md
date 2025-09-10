@@ -227,9 +227,16 @@ farm_data: dict        # Infos spécifiques farm
 
 ## ⚙️ Configuration
 
-### Variables d'environnement (.env)
+### Variables d'environnement
 ```bash
+# Fichier principal: .env
 DATABASE_URL=postgresql://user:pass@localhost:5432/wakdrop
+WAKFU_CDN_BASE_URL=https://wakfu.cdn.ankama.com/gamedata
+WAKFU_VERSION=1.88.1.39
+
+# Variables système globales: /etc/muppy.env  
+# Chargées automatiquement par le service systemd
+DATABASE_URL=postgresql://wakdrop_user:password@localhost:5432/wakdrop
 WAKFU_CDN_BASE_URL=https://wakfu.cdn.ankama.com/gamedata
 WAKFU_VERSION=1.88.1.39
 ```
@@ -300,6 +307,32 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ## 📋 Commandes Utiles
 - `uvicorn main:app --reload` - Serveur dev avec auto-reload
 - `python -c "from core.database import engine, Base; Base.metadata.create_all(engine)"` - Créer tables
+
+## ⚠️ FORMAT DES DROP RATES - IMPORTANT
+
+### 📊 **Convention des taux de drop**
+- **Dans la base de données** : Les valeurs sont DÉJÀ en pourcentage
+  - `0.4` = **0.4%** (PAS 40% !)
+  - `1.0` = **1.0%** (PAS 100% !)
+  - `0.04` = **0.04%** (très rare)
+  - `2.0` = **2.0%** (drop garanti avec bonus)
+  
+- **Dans l'API** : 
+  - `drop_rate` : Valeur numérique (ex: `0.4`)
+  - `drop_percentage` : String formaté (ex: `"0.4%"`)
+
+- **Exemple concret** :
+  ```json
+  {
+    "item_id": 29133,
+    "item_name": "Plastron d'Enter",
+    "drop_rate": 0.4,
+    "drop_percentage": "0.4%"  // PAS "40%" !
+  }
+  ```
+
+### ⚠️ **Erreur commune à éviter**
+Ne JAMAIS multiplier par 100 pour afficher le pourcentage ! La valeur est déjà un pourcentage.
 
 ## 📊 État actuel du système
 

@@ -192,7 +192,8 @@ class DropManager:
                 
                 monsters_map[monster_id]['items'].append({
                     'item_id': item_id,
-                    'drop_rate': drop['drop_rate']
+                    'drop_rate': drop['drop_rate'],
+                    'drop_percentage': f"{drop['drop_rate']}%"  # Ajout du pourcentage formaté
                 })
                 
                 # Grouper par zones

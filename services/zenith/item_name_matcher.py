@@ -74,8 +74,9 @@ class ItemNameMatcher:
             
             # Bonus si la rareté correspond (si disponible)
             if zenith_rarity and zenith_rarity != 'unknown':
-                # TODO: Ajouter mapping rareté si nécessaire
-                pass
+                item_rarity = self.get_item_rarity(item['data'])
+                if self.rarities_match(zenith_rarity, item_rarity):
+                    final_score += 0.5  # Bonus important si rareté correspond
             
             if final_score > 0.1:  # Seuil minimum
                 candidates.append({
@@ -186,6 +187,35 @@ class ItemNameMatcher:
                 print(f"❌ MISS: '{zenith_name}' (meilleur score: {matches[0]['score']:.2f} si matches sinon 0.00)", file=sys.stderr)
         
         return results
+    
+    def get_item_rarity(self, item_data: Dict) -> str:
+        """Extrait la rareté d'un item depuis ses données CDN"""
+        try:
+            if 'definition' in item_data and 'item' in item_data['definition']:
+                item_def = item_data['definition']['item']
+                if 'baseParameters' in item_def and 'rarity' in item_def['baseParameters']:
+                    rarity_val = item_def['baseParameters']['rarity']
+                    rarity_map = {5: 'Mythique', 4: 'Légendaire', 3: 'Épique', 2: 'Rare', 1: 'Inhabituel', 0: 'Commun'}
+                    return rarity_map.get(rarity_val, 'Inconnu')
+        except:
+            pass
+        return 'Inconnu'
+    
+    def rarities_match(self, zenith_rarity: str, item_rarity: str) -> bool:
+        """Vérifie si les raretés ZenithWakfu et CDN correspondent"""
+        zenith_to_french = {
+            'legendary': 'Légendaire',
+            'mythic': 'Mythique', 
+            'epic': 'Épique',
+            'relic': 'Relique',
+            'rare': 'Rare',
+            'unusual': 'Inhabituel',
+            'uncommon': 'Inhabituel',
+            'common': 'Commun'
+        }
+        
+        mapped_zenith = zenith_to_french.get(zenith_rarity.lower(), zenith_rarity)
+        return mapped_zenith == item_rarity
 
 def test_matcher():
     """Test du matcher avec quelques exemples"""

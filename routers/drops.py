@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from datetime import datetime
 
 from core.database import get_db
-from models.cache import MonsterDrop, CachedMonster
+from models.cache import MonsterDrop, CachedMonster, CachedItem
 from models.zones import MonsterZone, Zone
 from services.drop_manager import drop_manager
 
@@ -170,6 +170,7 @@ async def import_monster_drops(request: ImportDropsRequest, db: Session = Depend
         'monsters_added': 0,
         'drops_added': 0,
         'drops_updated': 0,
+        'items_created': 0,
         'errors': []
     }
     
@@ -323,6 +324,7 @@ async def import_json_file(request: JSONFileImportRequest, db: Session = Depends
         'monsters_added': 0,
         'drops_added': 0,
         'drops_updated': 0,
+        'items_created': 0,
         'errors': []
     }
     
@@ -395,6 +397,40 @@ async def import_json_file(request: JSONFileImportRequest, db: Session = Depends
                         
                         if not item_id or drop_rate is None:
                             continue
+                        
+                        # Vérifier si l'item existe dans cached_items, sinon le créer
+                        existing_item = db.query(CachedItem).filter(CachedItem.wakfu_id == item_id).first()
+                        print(f"DEBUG: item_id={item_id}, item_name='{item_name}', existing_item={existing_item is not None}")
+                        if not existing_item and item_name:
+                            # Créer une entrée minimale pour l'item manquant
+                            item_data = {
+                                "definition": {
+                                    "item": {
+                                        "id": item_id,
+                                        "level": 1,
+                                        "baseParameters": {
+                                            "rarity": 0
+                                        }
+                                    }
+                                },
+                                "title": {
+                                    "fr": item_name
+                                },
+                                "description": {
+                                    "fr": f"Item importé automatiquement depuis le bestiaire - {item_name}"
+                                },
+                                "source": "bestiaire_auto_import"
+                            }
+                            
+                            new_cached_item = CachedItem(
+                                wakfu_id=item_id,
+                                data_json=item_data,
+                                obtention_type="unknown",
+                                last_updated=datetime.utcnow()
+                            )
+                            db.add(new_cached_item)
+                            results['items_created'] += 1
+                            print(f"DEBUG: Created item {item_id}: {item_name}")
                         
                         # Vérifier si le drop existe déjà
                         existing_drop = db.query(MonsterDrop).filter(

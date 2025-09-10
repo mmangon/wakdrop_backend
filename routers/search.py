@@ -2,14 +2,25 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import json
 import re
 
 from core.database import get_db
-from models.cache import CachedItem
+from models.cache import CachedItem, MonsterDrop, CachedMonster
+from models.zones import MonsterZone, Zone
 
 router = APIRouter(prefix="/search", tags=["search"])
+
+class MonsterInfo(BaseModel):
+    id: int
+    name: str
+    level: Optional[int] = None
+    zone: Optional[str] = None
+    drop_rate: float = Field(alias="dropRate")
+    
+    class Config:
+        populate_by_name = True
 
 class ItemSearchResult(BaseModel):
     wakfu_id: int
@@ -19,6 +30,7 @@ class ItemSearchResult(BaseModel):
     rarity: Optional[str] = None
     match_score: float
     obtention_type: Optional[str] = None
+    monsters: List[MonsterInfo] = []
 
 class ItemSearchRequest(BaseModel):
     query: str
@@ -53,7 +65,17 @@ async def search_items(request: ItemSearchRequest, db: Session = Depends(get_db)
             if not isinstance(item_data, dict):
                 continue
             
-            item_name = item_data.get('title', {}).get('fr', '')
+            # Gestion des 2 formats: CDN (title.fr) et bestiaire (title direct)
+            title_data = item_data.get('title', '')
+            if isinstance(title_data, dict):
+                # Format CDN: title.fr
+                item_name = title_data.get('fr', '')
+            elif isinstance(title_data, str):
+                # Format bestiaire: title direct
+                item_name = title_data
+            else:
+                item_name = ''
+            
             if not item_name:
                 continue
             
@@ -66,6 +88,9 @@ async def search_items(request: ItemSearchRequest, db: Session = Depends(get_db)
                 item_type = get_item_type(item_data)
                 rarity = get_item_rarity(item_data)
                 
+                # Récupérer les données de drop
+                monsters_info = get_item_monsters(cached_item.wakfu_id, db)
+                
                 results.append(ItemSearchResult(
                     wakfu_id=cached_item.wakfu_id,
                     name=item_name,
@@ -73,7 +98,8 @@ async def search_items(request: ItemSearchRequest, db: Session = Depends(get_db)
                     item_type=item_type,
                     rarity=rarity,
                     match_score=score,
-                    obtention_type=cached_item.obtention_type
+                    obtention_type=cached_item.obtention_type,
+                    monsters=monsters_info
                 ))
         
         except Exception as e:
@@ -163,17 +189,39 @@ def calculate_match_score(query: str, item_name: str) -> float:
     query = query.lower().strip()
     item_name = item_name.lower().strip()
     
-    # Score parfait si correspondance exacte
+    # Normaliser les textes pour la comparaison (enlever apostrophes, accents, etc.)
+    def normalize_text(text):
+        # Remplacer les apostrophes et caractères spéciaux
+        text = text.replace("'", " ").replace("'", " ").replace("-", " ")
+        # Remplacer les accents
+        text = text.replace("à", "a").replace("é", "e").replace("è", "e").replace("ê", "e")
+        text = text.replace("î", "i").replace("ô", "o").replace("ù", "u").replace("û", "u")
+        text = text.replace("ç", "c").replace("â", "a").replace("ï", "i")
+        # Enlever les espaces multiples
+        return " ".join(text.split())
+    
+    query_norm = normalize_text(query)
+    item_norm = normalize_text(item_name)
+    
+    # Score parfait si correspondance exacte (normalisée)
+    if query_norm == item_norm:
+        return 1.0
+    
+    # Score parfait si correspondance exacte (originale)
     if query == item_name:
         return 1.0
     
-    # Score élevé si l'item contient la query complète
+    # Score élevé si l'item contient la query complète (normalisée)
+    if query_norm in item_norm:
+        return 0.9 - (len(item_norm) - len(query_norm)) / len(item_norm) * 0.3
+    
+    # Score élevé si l'item contient la query complète (originale)
     if query in item_name:
         return 0.9 - (len(item_name) - len(query)) / len(item_name) * 0.3
     
-    # Score pour correspondance partielle (mots individuels)
-    query_words = query.split()
-    item_words = item_name.split()
+    # Score pour correspondance partielle (mots individuels) - utiliser textes normalisés
+    query_words = query_norm.split()
+    item_words = item_norm.split()
     
     # Vérifier si tous les mots de la query correspondent exactement
     exact_word_matches = 0
@@ -310,3 +358,56 @@ def get_item_rarity(item_data: dict) -> Optional[str]:
         return None
     except:
         return None
+
+def get_item_monsters(item_id: int, db: Session) -> List[MonsterInfo]:
+    """Récupère les monstres qui drop un item donné"""
+    try:
+        # Joindre MonsterDrop, CachedMonster et MonsterZone pour récupérer toutes les infos
+        query = (
+            db.query(MonsterDrop, CachedMonster, Zone)
+            .join(CachedMonster, MonsterDrop.monster_id == CachedMonster.wakfu_id)
+            .outerjoin(MonsterZone, MonsterZone.monster_id == CachedMonster.wakfu_id)
+            .outerjoin(Zone, MonsterZone.zone_id == Zone.id)
+            .filter(MonsterDrop.item_id == item_id)
+            .filter(MonsterDrop.drop_rate > 0)  # Seulement les drops avec taux > 0
+            .order_by(MonsterDrop.drop_rate.desc())  # Trier par taux décroissant
+        )
+        
+        results = query.all()
+        
+        monsters = []
+        for drop, monster, zone in results:
+            monsters.append(MonsterInfo(
+                id=monster.wakfu_id,
+                name=monster.name,
+                level=monster.level,
+                zone=zone.name if zone else None,
+                dropRate=drop.drop_rate
+            ))
+        
+        return monsters
+        
+    except Exception as e:
+        # En cas d'erreur avec la jointure, faire une requête simple sur monster_drops
+        try:
+            simple_query = (
+                db.query(MonsterDrop)
+                .filter(MonsterDrop.item_id == item_id)
+                .filter(MonsterDrop.drop_rate > 0)
+                .order_by(MonsterDrop.drop_rate.desc())
+            )
+            
+            results = simple_query.all()
+            monsters = []
+            for drop in results:
+                monsters.append(MonsterInfo(
+                    id=drop.monster_id,
+                    name=drop.monster_name,
+                    level=drop.monster_level,
+                    zone=drop.zone_name,
+                    dropRate=drop.drop_rate
+                ))
+            
+            return monsters
+        except:
+            return []

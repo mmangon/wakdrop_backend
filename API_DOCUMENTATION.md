@@ -1,8 +1,16 @@
 # 🎯 WakDrop API - Documentation Frontend
 
 **Base URL**: `https://wakdropbackend-master-dev-mmangon.nabricot.pandabyte.ovh` (production)  
-**API Version**: 0.6.0  
+**API Version**: 0.6.1  
 **Documentation interactive**: https://wakdropbackend-master-dev-mmangon.nabricot.pandabyte.ovh/docs
+
+## 🆕 **Mise à jour v0.6.1** - Monstres dans Recherche d'Items
+
+- 🎯 **NEW: Monstres dans `/search/items`** : L'endpoint retourne maintenant les monstres qui drop chaque item !
+- 💧 **dropRate standardisé** : Format uniforme `dropRate` au lieu de `drop_rate`
+- 🔧 **Fonction de recherche améliorée** : Gestion des apostrophes et accents
+- 📊 **Base de données complète** : 8,959+ items avec drop rates corrigés
+- ✅ **729 items ajoutés** depuis le bestiaire avec leurs drops
 
 ## 🆕 **Mise à jour v0.6.0** - Structure Plate & Performance
 
@@ -61,7 +69,7 @@ items.forEach(item => {
 
 ### 1. **Recherche d'Items** - `/search/items`
 
-**L'endpoint le plus important** - Permet de rechercher des items par nom/texte.
+**L'endpoint le plus important** - Permet de rechercher des items par nom/texte avec **informations de drop**.
 
 #### POST `/search/items`
 
@@ -76,12 +84,21 @@ items.forEach(item => {
 [
   {
     "wakfu_id": 6121,
-    "name": "Boufépée",
+    "name": "Boufépée", 
     "level": 185,
     "item_type": "Arme",
     "rarity": "Rare",
     "match_score": 0.75,
-    "obtention_type": "craft"
+    "obtention_type": "craft",
+    "monsters": [
+      {
+        "id": 2083,
+        "name": "Craqueboule Chuchoté",
+        "level": null,
+        "zone": "Zone Sombre",
+        "dropRate": 0.8
+      }
+    ]
   }
 ]
 ```
@@ -90,12 +107,20 @@ items.forEach(item => {
 ```javascript
 async searchItems(query) {
   const response = await fetch('https://wakdropbackend-master-dev-mmangon.nabricot.pandabyte.ovh/search/items', {
-    method: 'POST',
+    method: 'POST', 
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, limit: 20 })
   })
   return response.json()
 }
+
+// Affichage des monstres qui droppent l'item
+items.forEach(item => {
+  console.log(`${item.name} (${item.rarity})`)
+  item.monsters.forEach(monster => {
+    console.log(`  - ${monster.name}: ${monster.dropRate}% (${monster.zone})`)
+  })
+})
 ```
 
 ---
@@ -306,7 +331,7 @@ Vous pouvez maintenant spécifier la rareté directement dans le texte !
         <p>📍 {{ monster.zone }} - Priorité: {{ monster.priority_score }}/10</p>
         <ul>
           <li v-for="item in monster.dropped_items" :key="item.item_id">
-            {{ item.item_name }} ({{ item.drop_rate }}% de drop)
+            {{ item.item_name }} ({{ item.dropRate }}% de drop)
           </li>
         </ul>
       </div>
@@ -493,7 +518,7 @@ Génère une roadmap de farm optimisée pour plusieurs items.
       "zone": "Plaine des Bouftous",  // 🆕 Zone incluse
       "total_items": 2,
       "dropped_items": [
-        {"item_name": "DéCape", "drop_rate": 0.8}
+        {"item_name": "DéCape", "dropRate": 0.8}
       ]
     }
   ]
