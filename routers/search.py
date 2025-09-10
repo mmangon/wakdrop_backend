@@ -351,8 +351,8 @@ def get_item_rarity(item_data: dict) -> Optional[str]:
                 3: "Mythique",
                 4: "Légendaire",
                 5: "Relique",
-                6: "Épique",
-                7: "Souvenir"
+                6: "Souvenir",
+                7: "Épique"
             }
             return rarity_map.get(rarity_id, f"Rareté {rarity_id}")
         return None

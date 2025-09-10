@@ -115,9 +115,9 @@ def get_database_drops(session):
 
 def update_items_with_rarity(session, json_drops):
     """
-    Met à jour les items en cache avec les raretés du bestiaire
+    Met à jour SEULEMENT les items manquants du CDN (obtention_type = 'unknown') avec les raretés du bestiaire
     """
-    print("\n🎨 Mise à jour des raretés...")
+    print("\n🎨 Mise à jour des raretés pour les items manquants du CDN...")
     
     # Créer un mapping item_id -> rarity_id
     item_rarities = {}
@@ -129,13 +129,14 @@ def update_items_with_rarity(session, json_drops):
                     'rarity_text': item_data['rarity_text']
                 }
     
-    print(f"📦 {len(item_rarities)} items avec rareté trouvés")
+    print(f"📦 {len(item_rarities)} items avec rareté trouvés dans le bestiaire")
     
     updated_count = 0
     for item_id, rarity_data in item_rarities.items():
-        # Vérifier si l'item existe en cache
+        # Vérifier si l'item existe en cache ET qu'il vient du bestiaire (obtention_type = 'unknown')
         result = session.execute(text("""
-            SELECT data_json FROM cached_items WHERE wakfu_id = :item_id
+            SELECT data_json FROM cached_items 
+            WHERE wakfu_id = :item_id AND obtention_type = 'unknown'
         """), {'item_id': item_id})
         
         row = result.fetchone()
@@ -190,7 +191,8 @@ def update_items_with_rarity(session, json_drops):
             })
     
     session.commit()
-    print(f"✅ {updated_count} items mis à jour avec raretés")
+    print(f"✅ {updated_count} items manquants du CDN mis à jour avec raretés")
+    print(f"🔒 Items du CDN officiel conservent leurs raretés originales")
 
 def compare_and_fix_drops():
     """
